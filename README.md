@@ -1,4 +1,4 @@
-#IEEE ICDM 2018 Global A.I. Challenge on Meteorology
+# IEEE ICDM 2018 Global A.I. Challenge on Meteorology
 ## Catch Rain If You Can
 The A.I. Challenge
 

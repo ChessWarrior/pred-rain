@@ -11,8 +11,8 @@ class data_reader():
 	def __init__(self, file_name):
 		self.file_name = file_name
 
-	def read_and_decode(self, batch_size):
-		def parser(record):
+	def read_and_decode(self, batch_size, mode='train'):
+		def parser_train(record):
 			features = tf.parse_single_example(record, 
 						features={'data_raw': tf.FixedLenFeature([], tf.string),
 								'label_raw': tf.FixedLenFeature([], tf.string)})
@@ -22,13 +22,28 @@ class data_reader():
 			label = tf.decode_raw(features['label_raw'], tf.uint8)
 			label = tf.reshape(label, [30, 501, 501, 1])
 			return img, label
-	
-		dataset = tf.data.TFRecordDataset(self.file_name)
+		def parser_test(record):
+			features = tf.parse_single_example(record, 
+						features={'data_raw': tf.FixedLenFeature([], tf.string)})
+			image = tf.decode_raw(features['data_raw'], tf.uint8)
+			img = tf.reshape(image, [31, 501, 501, 1])
+			img = tf.cast(img, tf.float32)
+			return img
 		
-		dataset = dataset.map(parser).repeat().batch(batch_size)
+		dataset = tf.data.TFRecordDataset(self.file_name)
+		if mode == 'train':
+			dataset = dataset.map(parser_train).repeat().batch(batch_size)
+		else:
+			dataset = dataset.map(parser_test)
+
 		iterator = dataset.make_one_shot_iterator()
-		img_input, label = iterator.get_next()
-		return img_input, label
+		if mode == 'train':
+			img_input, label = iterator.get_next()
+			return img_input, label
+		else:
+			img_input = iterator.get_next()
+			return img_input
+
 
 	def read_data_in_np(self, sess, batch_size):
 		pass

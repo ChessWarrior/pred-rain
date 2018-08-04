@@ -39,9 +39,9 @@ class cvter():
 		self.writer = tf.python_io.TFRecordWriter(file_name)
 		self.data_dirs = []
 		l = os.listdir(data_dir)
-		l = l[0:len(l)//25]
-		print('before: ', len(l) * 25)
-		print('after: ', len(l))
+		#l = l[0:len(l)//25]
+		#print('before: ', len(l) * 25)
+		#print('after: ', len(l))
 		for i in l:
 			if os.path.isdir(os.path.join(data_dir, i)): 
 				self.data_dirs.append(os.path.join(data_dir, i))

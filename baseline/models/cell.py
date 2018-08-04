@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+# TODO: implement TrajGRU as in the paper (Deep Learning for Precipitation Nowcasting: A Benchmark and A New Model)
 class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
 	"""A LSTM cell with convolutions instead of multiplications.
 

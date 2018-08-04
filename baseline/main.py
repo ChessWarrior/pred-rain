@@ -12,6 +12,8 @@ def get_parser():
 	parser = argparse.AugmentParser()
 	parser.add_augment('--mode', type=str, choice=['train', 'test'])
 	parser.add_augment('--data_file', type=str, help='the path to the tfrecords file')
+	parser.add_augment('--test_file', type=str, help='the path to test data tfrecords file')
+	parser.add_augment('--model_path', type=str)
 	parser.add_augment('--batch_size', type=int, default=4, help='the batch_size')
 	parser.add_augment('--save_interval', type=int, default=20)
 	parser.add_augment('--log_interval', type=int, default=5)
@@ -40,8 +42,14 @@ def test(args):
 	data and make prediction(convert it into tfrecords format, in this way this op 
 	can be build in the graph which can speed up)
 	'''
-	pass
-
+	dr = data_reader(args.test_data)
+	sess = tf.InteractiveSession()
+	img = dr.read_and_decode(args.batch_size)
+	model = ConvLSTM_Model(args)
+	model.build(img)
+	model.restore(args.model_path)
+	# TODO: collect the result
+	model.predict(img)
 
 def main():
 	pass

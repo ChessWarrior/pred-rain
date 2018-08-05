@@ -23,7 +23,7 @@ class data_reader():
 			label = tf.reshape(label, [30, 501, 501, 1])
 			label = tf.cast(label, tf.float32)
 			return img, label
-			
+
 		def parser_test(record):
 			features = tf.parse_single_example(record, 
 						features={'data_raw': tf.FixedLenFeature([], tf.string)})
@@ -54,6 +54,8 @@ if __name__ == '__main__':
 	dr = data_reader('01.tfrecords')
 	sess = tf.InteractiveSession()
 	img, lbl = dr.read_and_decode(10)
+	# img and lbl will be tf.Tensor
 	img_, lbl = sess.run([img, lbl])
+	# use the Tensors to directly build the compute graph, no need for feed_dict
 	print(img_.shape)
 	print(lbl.shape)

@@ -29,6 +29,7 @@ class ConvLSTM_Model(Base_Model):
 	def __init__(self, args):
 		super(ConvLSTM_Model, self).__init__(args)
 		self.args = args
+		self.saver = tf.train.Saver()
 		
 	def build(self, X, y):
 		# TODO: check self.args.mode to decide which mode to build
@@ -47,10 +48,18 @@ class ConvLSTM_Model(Base_Model):
 		self.optim = tf.train.AdamOptimizer()
 		self.train_op = self.optim.minimize(self.loss)
 
-
 	def fit(self, sess, X_train, y_train, save_path):
-		# TODO: training script
-		pass
+		sess.run(tf.global_variables_initializer())
+
+		for epoch in range(self.args.epochs):
+			if epoch + 1 % self.args.save_interval:
+				# TODO: save the model
+				pass
+
+			if epoch + 1 % self.args.log_interval:
+				# TODO: print the needed log info
+				pass
+
 
 	def predict(self, sess, X):
 		# TODO: predict the (batch_size, 30, 501, 501, 1) prediction
@@ -58,4 +67,4 @@ class ConvLSTM_Model(Base_Model):
 
 	def restore(self, sess, path):
 		# TODO: restore the model to sess
-		pass
+		self.saver.restore(sess, path)

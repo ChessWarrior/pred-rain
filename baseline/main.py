@@ -15,6 +15,7 @@ def get_parser():
 	parser.add_augment('--test_file', type=str, help='the path to test data tfrecords file')
 	parser.add_augment('--model_path', type=str)
 	parser.add_augment('--batch_size', type=int, default=4, help='the batch_size')
+	parser.add_augment('--epochs', type=int, default=100)
 	parser.add_augment('--save_interval', type=int, default=20)
 	parser.add_augment('--log_interval', type=int, default=5)
 	return parser

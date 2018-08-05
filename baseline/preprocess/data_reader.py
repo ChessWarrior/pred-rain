@@ -21,7 +21,9 @@ class data_reader():
 			img = tf.cast(img, tf.float32)
 			label = tf.decode_raw(features['label_raw'], tf.uint8)
 			label = tf.reshape(label, [30, 501, 501, 1])
+			label = tf.cast(label, tf.float32)
 			return img, label
+			
 		def parser_test(record):
 			features = tf.parse_single_example(record, 
 						features={'data_raw': tf.FixedLenFeature([], tf.string)})
@@ -34,7 +36,7 @@ class data_reader():
 		if mode == 'train':
 			dataset = dataset.map(parser_train).repeat().batch(batch_size)
 		else:
-			dataset = dataset.map(parser_test)
+			dataset = dataset.map(parser_test).repeat().batch(batch_size)
 
 		iterator = dataset.make_one_shot_iterator()
 		if mode == 'train':

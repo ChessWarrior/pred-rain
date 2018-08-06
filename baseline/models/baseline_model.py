@@ -3,11 +3,12 @@ import tensorflow as tf
 import sys
 import os
 curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
+rootPath = os.path.join(os.path.split(curPath)[0], 'models')
 sys.path.append(rootPath)
+#print(sys.path)
 import tensorlayer as tl
 from tensorlayer.layers import *
-from .base_model import Base_Model
+from base_model import Base_Model
 
 class ConvLSTM_Model(Base_Model):
 	'''

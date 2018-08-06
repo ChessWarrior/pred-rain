@@ -8,6 +8,7 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 # Requirements
 python 3.6 
 - tensorflow-gpu
+- tensorlayer
 
 
 

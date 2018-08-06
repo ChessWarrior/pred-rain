@@ -2,25 +2,7 @@
 import tensorflow as tf
 import tensorlayer as tl
 from tensorlayer.layers import *
-#from cell import ConvLSTMCell
-# tf.nn.dynamic_rnn
-
-class Base_Model(object):
-	"""Base_Model should only be inherited not to be directly used"""
-	def __init__(self, args):
-		self.args = args
-
-	def build(self, X_train, y_train):
-		raise NotImplementedError('build function is not implemented')
-
-	def fit(self, sess, X_train, y_train):
-		raise NotImplementedError('fit function not implemented')
-
-	def predict(self, sess, X):
-		raise NotImplementedError('predict function is not implemented')
-
-	def restore(self, sess, path):
-		raise NotImplementedError('restore function is not implemented')
+from .base_model import Base_Model
 
 class ConvLSTM_Model(Base_Model):
 	'''

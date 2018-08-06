@@ -27,8 +27,6 @@ def train(args):
 	'''
 	dr = np_data_reader(args)
 	sess = tf.InteractiveSession()
-	#img, pred = dr.read_and_decode(args.batch_size)
-	# use the img and pred to build the graph and train the model
 	model = ConvLSTM_Model(args)
 	X = tf.placeholder(shape=[None, 31, 501, 501, 1], dtype=tf.float32)
 	y = tf.placeholder(shape=[None, 30, 501, 501, 1], dtype=tf.float32)

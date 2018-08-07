@@ -45,6 +45,12 @@ class time_images():
 
 class cvter():
     def __init__(self, file_name, data_dir, train_val_split=0.2):
+        '''
+            param: 
+                file_name: the name of the saved tfrecords file
+                data_dir: as the descrption in README.md
+                train_val_split: ...
+        '''
         self.train_writer = tf.python_io.TFRecordWriter('train_' + file_name)
         self.vali_writer = tf.python_io.TFRecordWriter('vali_' + file_name)
         self.train_sub_dirs = []
@@ -63,7 +69,6 @@ class cvter():
                 self.vali_sub_dirs.append(os.path.join(data_dir, i))
 
     def convert(self):
-        idx = 1
         for sub_dir in tqdm(self.train_sub_dirs):
             sub_img = time_images(sub_dir)
             example = tf.train.Example(features=tf.train.Features(feature={
@@ -75,7 +80,6 @@ class cvter():
             }))
             #print('Writing {}'.format(idx))
             self.train_writer.write(example.SerializeToString())
-            idx += 1
         self.train_writer.close()
 
         for sub_dir in tqdm(self.vali_sub_dirs):
@@ -86,7 +90,6 @@ class cvter():
             }))
             #print('Writing {}'.format(idx))
             self.vali_writer.write(example.SerializeToString())
-            idx += 1
         self.vali_writer.close()
 
     def _bytes_feature(self, value):
@@ -94,7 +97,6 @@ class cvter():
     
     def _int64_feature(self, value):
         return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
 
 class png_cvter():
     def __init__(self, file_name, data_dir, hight=501, width=501):
@@ -186,8 +188,6 @@ class png_cvter():
     e.g, sentence in list of bytes
     """
         return tf.train.FeatureList(feature=[cls._bytes_feature(v) for v in values])
-
-
 
 if __name__ == '__main__':
     pass

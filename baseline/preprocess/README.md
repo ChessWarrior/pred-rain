@@ -1,9 +1,11 @@
-# Usage for data converter 
+# Usage for data converter and reader
 
 ## 1. Convert data to `.tfrecords`
 
-```bash
-python cvt2tfrecord.py --data_dir ../data --records data
+```python
+from cvt2tfrecord import cvter
+cvt = cvter('01.tfrecords', '../data/')
+cvt.convert()
 ```
 
 `data_dir` should be directory in the following format
@@ -24,4 +26,6 @@ data_dir/
 
 ## 2. Read the data from `.tfrecords` file
 
-check out the `data_reader.py`
+Detailed usage is in the `usage.ipynb`
+
+also in `baseline_model.py` you can see how I use this for the ConvLSTM Model

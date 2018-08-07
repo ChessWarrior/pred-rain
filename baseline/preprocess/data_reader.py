@@ -1,7 +1,7 @@
-# this file contains script that build the data reading precedure into the graph
-# for this project(TJCS Dev Group- pred-rain) the data has two parts, use the 
-# previous 31 frames of radar map to produce prediction of the next 30 frame of radar map
-# in the ICDM2018 competition only 6 frame is required to be evaluate (5, 10, 15, 20, 25, 30)
+# This file contains scripts that build the data reading precedure into the graph
+# for this project (TJCS Dev Group- pred-rain). The data has two parts, using the 
+# first 31 frames of radar images to produce predictions of the next 30 frames of radar images
+# In the ICDM2018 competition only 6 frames are required for evaluation (5, 10, 15, 20, 25, 30).
 
 import os
 import numpy as np
@@ -103,6 +103,43 @@ class np_data_reader():
 		assert x_img.shape == (31, 501, 501, 1)
 		assert y_img.shape == (30, 501, 501, 1)
 		return x_img, y_img
+
+	# Yang
+	# Funcitons to support reading from sequence tfrecord file
+	# Usage:
+		# dataset = tf.data.TFRecordDataset(filenames)
+		# dataset = dataset.map(parser_train)
+		# iterator = dataset.make_initializable_iterator()
+		# sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
+		# x, y, time_stamp = iterator.get_next()
+	def parser_train(serialized_example):
+		features = {
+			'data_raw': tf.FixedLenFeature([], tf.string),
+			'label_raw': tf.FixedLenFeature([], tf.string)
+		}
+		features, sequence_features = tf.parse_single_sequence_example(
+			serialized_example, context_features={
+				'time_stamp': tf.FixedLenFeature([], tf.string),
+			}, sequence_features={
+				"data_raw": tf.FixedLenSequenceFeature([], dtype=tf.string),
+				"label_raw": tf.FixedLenSequenceFeature([], dtype=tf.string),
+			})
+		cast_to_float32 = partial(tf.cast, dtype=tf.float32)
+		
+		x = tf.map_fn(tf.image.decode_png, sequence_features['data_raw'], dtype=tf.uint8,
+					back_prop=False, swap_memory=False, infer_shape=False)
+		x = tf.map_fn(cast_to_float32, x, dtype=tf.float32,
+					back_prop=False, swap_memory=False, infer_shape=False)
+		x = tf.squeeze(x)
+		
+		y = tf.map_fn(tf.image.decode_png, sequence_features['label_raw'], dtype=tf.uint8,
+					back_prop=False, swap_memory=False, infer_shape=False))
+		y = tf.map_fn(cast_to_float32, y, dtype=tf.float32,
+					back_prop=False, swap_memory=False, infer_shape=False))
+		y = tf.squeeze(y)
+		
+		return x, y, features['time_stamp']
+
 
 if __name__ == '__main__':
 	pass

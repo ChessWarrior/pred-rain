@@ -8,6 +8,9 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm_notebook
 
+NUM_X = 31
+NUM_Y = 30
+
 class time_images():
     def __init__(self, dirs):
         self.time_stamp = dirs.split('/')[-1]
@@ -79,41 +82,95 @@ class cvter():
 
 class png_cvter():
     def __init__(self, file_name, data_dir, hight=501, width=501):
-        self.writer = tf.python_io.TFRecordWriter(file_name)
         self.file_name, self.data_dir = file_name, data_dir
         self.hight , self.width = hight, width
 
     def convert(self):
-        for subdir in tqdm_notebook(list(Path(self.data_dir).iterdir()), desc='Processing subdirectory', leave=False):
+        writer = tf.python_io.TFRecordWriter(self.file_name)
+        subdirs = sorted(list(Path(self.data_dir).iterdir()))
+        for subdir in tqdm_notebook(subdirs, desc='Processing subdirectory', leave=False):
             if subdir.is_dir(): # for subdirecories
                 x, y = [], []
+                time_stamp = subdir.name
                 fns = sorted(subdir.glob('*.png'))
-                for fn in fns: # for images
-                    time_stamp = subdir.name
+                for i, fn in enumerate(fns): # read images
                     with open(str(fn), 'rb') as raw_img:
-                        img_id = int(fn.name[-7:-4])
-                        if img_id <= 30: # group data by file name
+                        if i < NUM_X: # group data by file name
+                            x.append(raw_img.read())
+                        else:
+                            y.append(raw_img.read())
+
+                # execute for each subdirectory
+                # from IPython.core.debugger import set_trace; set_trace()
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    'data_raw': self._bytes_feature(np.asarray(x).tostring()),
+                    'label_raw' : self._bytes_feature(np.asarray(y).tostring()),
+                    'time_stamp': self._bytes_feature(time_stamp.encode('utf-8'))
+                }))
+                writer.write(example.SerializeToString())
+
+    def convert_sequence(self):
+        # haven't figured out a way to decode sequence raw png data
+        writer = tf.python_io.TFRecordWriter(self.file_name)
+        subdirs = sorted(list(Path(self.data_dir).iterdir()))
+        for subdir in tqdm_notebook(subdirs, desc='Processing subdirectory', leave=False):
+            if subdir.is_dir(): # for subdirecories
+                time_stamp = subdir.name
+                x, y = [], []
+                fns = sorted(subdir.glob('*.png'))
+                for i, fn in enumerate(fns): # read images
+                    with open(str(fn), 'rb') as raw_img:
+                        if i < NUM_X: # group data by file name
                             x.append(raw_img.read())
                         else:
                             y.append(raw_img.read())
                 
-            # execute for each subdirectory
-            # from IPython.core.debugger import set_trace; set_trace()
-            example = tf.train.Example(features=tf.train.Features(feature={
-                'data_raw': self._bytes_feature(np.asarray(x).tostring()),
-                'label_raw' : self._bytes_feature(np.asarray(y).tostring()),
-                'time_stamp': self._bytes_feature(time_stamp.encode('utf-8')),
-                'height': self._int64_feature(self.hight),
-                'width' : self._int64_feature(self.width)
-            }))
-            self.writer.write(example.SerializeToString())
+                # execute for each subdirectory
+                # from IPython.core.debugger import set_trace; set_trace()
+                context = tf.train.Features(feature={
+                    'time_stamp': self._bytes_feature(time_stamp.encode())
+                })
+                feature_lists = tf.train.FeatureLists(
+                    feature_list={
+                        'data_raw': self._bytes_feature_list(x),
+                        'label_raw' : self._bytes_feature_list(y),
+                    }
+                )
+                sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
+                writer.write(sequence_example.SerializeToString())
 
-    def _bytes_feature(self, value):
-        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-    
-    def _int64_feature(self, value):
+    @classmethod    
+    def _int64_feature(cls, value):
+        """Wrapper for inserting an int64 Feature into a SequenceExample proto,
+    e.g, An integer label.
+    """
         return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-    
+
+
+    @classmethod    
+    def _bytes_feature(cls, value):
+        """Wrapper for inserting a bytes Feature into a SequenceExample proto,
+    e.g, an image in byte
+    """
+        # return tf.train.Feature(bytes_list=tf.train.BytesList(value=[str(value)]))
+        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+    @classmethod    
+    def _int64_feature_list(cls, values):
+        """Wrapper for inserting an int64 FeatureList into a SequenceExample proto,
+    e.g, sentence in list of ints
+    """
+        return tf.train.FeatureList(feature=[cls._int64_feature(v) for v in values])
+
+
+    @classmethod    
+    def _bytes_feature_list(cls, values):
+        """Wrapper for inserting a bytes FeatureList into a SequenceExample proto,
+    e.g, sentence in list of bytes
+    """
+        return tf.train.FeatureList(feature=[cls._bytes_feature(v) for v in values])
+
 
 
 if __name__ == '__main__':

@@ -5,12 +5,14 @@ import argparse
 import tensorflow as tf
 import numpy as np
 from models.baseline_model import ConvLSTM_Model
-from preprocess.data_reader import np_data_reader
+from preprocess.data_reader import data_reader
 
 def get_parser():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
-	parser.add_argument('--data_dir', type=str, default='data/', help='the path to the datas')
+	parser.add_argument('--train_val_split', type=float, default=0.2)
+	parser.add_argument('--train_records', type=str, default='train_01.tfrecords')
+	parser.add_argument('--valid_records', type=str, default='vali_01.tfrecords')
 	parser.add_argument('--test_dir', type=str, help='the path to test data file')
 	parser.add_argument('--model_path', default='pretrained/', type=str)
 	parser.add_argument('--batch_size', type=int, default=1, help='the batch_size')
@@ -25,11 +27,10 @@ def train(args):
 		this function is expected to be containing the main script to train the model 
 	defined in model folder
 	'''
-	dr = np_data_reader(args)
+	dr = data_reader(args)
 	sess = tf.InteractiveSession()
 	model = ConvLSTM_Model(args)
-	X = tf.placeholder(shape=[None, 31, 501, 501, 1], dtype=tf.float32)
-	y = tf.placeholder(shape=[None, 30, 501, 501, 1], dtype=tf.float32)
+	X, y = dr.read_and_decode(sess, args.batch_size)
 	model.build(X, y)
 
 	model.fit(sess, dr, args.model_path)

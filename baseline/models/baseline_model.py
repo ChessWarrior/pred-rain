@@ -17,7 +17,7 @@ class ConvLSTM_Model(Base_Model):
 
         self.net = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), input_shape=self.X.shape,
                                             padding='same', return_sequences=True)(self.X)
-        self.net = tf.keras.layers.BatchNormalization()(self.X)
+        self.net = tf.keras.layers.BatchNormalization()(self.net)
         
         self.net = tf.keras.layers.ConvLSTM2D(filters=128, kernel_size=(3, 3),
                                             padding='same', return_sequences=True)(self.net)

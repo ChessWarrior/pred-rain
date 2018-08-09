@@ -1,6 +1,4 @@
 import tensorflow as tf
-import tensorlayer as tl
-from tensorlayer.layers import *
 
 class Base_Model(object):
 	"""Base_Model should only be inherited not to be directly used"""

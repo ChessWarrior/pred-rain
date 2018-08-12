@@ -7,7 +7,7 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 from pathlib import Path
-from tqdm import tqdm
+from tqdm import tqdm_notebook
 
 NUM_X = 31
 NUM_Y = 30
@@ -98,6 +98,7 @@ class cvter():
     def _int64_feature(self, value):
         return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+
 class png_cvter():
     def __init__(self, file_name, data_dir, hight=501, width=501):
         self.file_name, self.data_dir = file_name, data_dir
@@ -128,7 +129,6 @@ class png_cvter():
                 writer.write(example.SerializeToString())
 
     def convert_sequence(self):
-        # haven't figured out a way to decode sequence raw png data
         writer = tf.python_io.TFRecordWriter(self.file_name)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
         for subdir in tqdm_notebook(subdirs, desc='Processing subdirectory', leave=False):
@@ -152,6 +152,30 @@ class png_cvter():
                     feature_list={
                         'data_raw': self._bytes_feature_list(x),
                         'label_raw' : self._bytes_feature_list(y),
+                    }
+                )
+                sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
+                writer.write(sequence_example.SerializeToString())
+
+    def convert_continious(self):
+        writer = tf.python_io.TFRecordWriter(self.file_name)
+        subdirs = sorted(list(Path(self.data_dir).iterdir()))
+        for subdir in tqdm_notebook(subdirs, desc='Processing subdirectory', leave=False):
+            if subdir.is_dir(): # for subdirecories
+                time_stamp = subdir.name
+                raw_png = []
+                fns = sorted(subdir.glob('*.png'))
+                for i, fn in enumerate(fns): # read images
+                    with open(str(fn), 'rb') as raw_png_open:
+                        raw_png.append(raw_png_open.read())
+                
+                # execute for each subdirectory
+                context = tf.train.Features(feature={
+                    'time_stamp': self._bytes_feature(time_stamp.encode())
+                })
+                feature_lists = tf.train.FeatureLists(
+                    feature_list={
+                        'raw_png': self._bytes_feature_list(raw_png)
                     }
                 )
                 sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)

@@ -72,6 +72,6 @@ def get_parser():
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
-    file_name = args.recordskj + '.tfrecords'
+    file_name = args.records + '.tfrecords'
     cvter = Cvter(file_name, args.data_dir)
     cvter.convert_continious()

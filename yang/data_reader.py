@@ -1,8 +1,9 @@
 import tensorflow as tf
 from utils.imports import *
+from tensorflow.keras.preprocessing.image import Iterator
+
 
 # Data generator that creates sequences for input into PredNet.
-"""
 class SequenceGenerator(Iterator):
     def __init__(self, data_file, source_file, nt,
                  batch_size=8, shuffle=False, seed=None,
@@ -63,7 +64,6 @@ class SequenceGenerator(Iterator):
         for i, idx in enumerate(self.possible_starts):
             X_all[i] = self.preprocess(self.X[idx:idx+self.nt])
         return X_all
-"""
 
 
 def open_greyscale(fn):
@@ -128,4 +128,3 @@ def calc_mean_std_par_dir(par_dir):
 def write_mean_std(fn, mean, std):
     with open(fn, 'w') as f:
         np.array([mean, std]).tofile(f, ',')
-

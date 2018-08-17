@@ -100,6 +100,10 @@ class PredNet(RNN):
         self.channel_axis = -3 if data_format == 'channels_first' else -1
         self.row_axis = -2 if data_format == 'channels_first' else -3
         self.column_axis = -1 if data_format == 'channels_first' else -2
+        print('data_format:\t', self.data_format)
+        print('channel_axis:\t', self.channel_axis)
+        print('row_axis:\t', self.row_axis)
+        print('column_axis:\t', self.column_axis)
         super().__init__(**kwargs)
         self.input_spec = [InputSpec(ndim=5)]
 
@@ -120,13 +124,14 @@ class PredNet(RNN):
                 out_shape = (out_stack_size, out_nb_row, out_nb_col)
             else:
                 out_shape = (out_nb_row, out_nb_col, out_stack_size)
-
+                
         if self.return_sequences:
             return (input_shape[0], input_shape[1]) + out_shape
         else:
             return (input_shape[0],) + out_shape
 
     def get_initial_state(self, x):
+        print('input_spec', self.input_spec)
         input_shape = self.input_spec[0].shape
         init_nb_row = input_shape[self.row_axis]
         init_nb_col = input_shape[self.column_axis]
@@ -193,7 +198,7 @@ class PredNet(RNN):
         self.upsample = UpSampling2D(data_format=self.data_format)
         self.pool = MaxPooling2D(data_format=self.data_format)
 
-        self.trainable_weights = []
+        self._trainable_weights = []
         nb_row, nb_col = (input_shape[-2], input_shape[-1]) if self.data_format == 'channels_first' else (input_shape[-3], input_shape[-2])
         for c in sorted(self.conv_layers.keys()):
             for l in range(len(self.conv_layers[c])):
@@ -210,7 +215,7 @@ class PredNet(RNN):
                 if self.data_format == 'channels_last': in_shape = (in_shape[0], in_shape[2], in_shape[3], in_shape[1])
                 with K.name_scope('layer_' + c + '_' + str(l)):
                     self.conv_layers[c][l].build(in_shape)
-                self.trainable_weights += self.conv_layers[c][l].trainable_weights
+                self._trainable_weights += self.conv_layers[c][l].trainable_weights
 
         self.states = [None] * self.nb_layers*3
 
@@ -218,7 +223,8 @@ class PredNet(RNN):
             self.t_extrap = K.variable(self.extrap_start_time, int if K.backend() != 'tensorflow' else 'int32')
             self.states += [None] * 2  # [previous frame prediction, timestep]
 
-    def step(self, a, states):
+    def call(self, a, **kwargs):
+        states = kwargs['initial_state']
         r_tm1 = states[:self.nb_layers]
         c_tm1 = states[self.nb_layers:2*self.nb_layers]
         e_tm1 = states[2*self.nb_layers:3*self.nb_layers]

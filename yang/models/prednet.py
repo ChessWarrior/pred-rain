@@ -1,4 +1,6 @@
-import numpy as np
+import sys
+sys.path.append('../utils')
+from utils.imports import *
 
 from tensorflow.keras import backend as K
 from tensorflow.keras import activations
@@ -131,7 +133,6 @@ class PredNet(RNN):
             return (input_shape[0],) + out_shape
 
     def get_initial_state(self, x):
-        print('input_spec', self.input_spec)
         input_shape = self.input_spec[0].shape
         init_nb_row = input_shape[self.row_axis]
         init_nb_col = input_shape[self.column_axis]
@@ -232,7 +233,7 @@ class PredNet(RNN):
         if self.extrap_start_time is not None:
             t = states[-1]
             a = K.switch(t >= self.t_extrap, states[-2], a)  # if past self.extrap_start_time, the previous prediction will be treated as the actual
-
+        set_trace()
         c = []
         r = []
         e = []
@@ -297,6 +298,9 @@ class PredNet(RNN):
         states = r + c + e
         if self.extrap_start_time is not None:
             states += [frame_prediction, t + 1]
+
+        set_trace()
+
         return output, states
 
     def get_config(self):

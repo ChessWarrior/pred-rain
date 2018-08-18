@@ -23,7 +23,7 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
     - [ ] Random Lighting
     - [ ] Random Crop?
 - [ ] 实现提议的序列拆分方式
-    - [ ] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg =251x243)
+    - [ ] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg)
 
 ### 模型
 

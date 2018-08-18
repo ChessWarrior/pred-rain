@@ -7,3 +7,5 @@ fastai
 .ipynb_checkpoints/
 .vscode/
 log
+
+*DS_Store

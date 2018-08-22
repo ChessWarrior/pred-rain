@@ -132,6 +132,7 @@ class PredNet(RNN):
         else:
             return (input_shape[0],) + out_shape
 
+    # TODO: impolement this method in top class
     def get_initial_state(self, x):
         input_shape = self.input_spec[0].shape
         init_nb_row = input_shape[self.row_axis]

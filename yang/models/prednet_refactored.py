@@ -6,7 +6,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import activations
 from tensorflow.keras.layers import RNN
 from tensorflow.keras.layers import Conv2D, UpSampling2D, MaxPooling2D
-from tensorflow.keras.layers import InputSpec
+from tensorflow.keras.layers import Layer, InputSpec
 
 
 class PredNetCell(Layer):
@@ -95,6 +95,7 @@ class PredNetCell(Layer):
                 output_mode='error',
                 extrap_start_time=None,
                 data_format=K.image_data_format(),
+                return_sequences=True,
                 **kwargs):
 
         # super(LSTMCell, self).__init__(**kwargs)
@@ -136,6 +137,7 @@ class PredNetCell(Layer):
         self.Ahat_filt_sizes = Ahat_filt_sizes
         assert len(R_filt_sizes) == (self.nb_layers), 'len(R_filt_sizes) must equal len(stack_sizes)'
         self.R_filt_sizes = R_filt_sizes
+        self.return_sequences = return_sequences
 
         self.pixel_max = pixel_max
         self.error_activation = activations.get(error_activation)
@@ -150,11 +152,20 @@ class PredNetCell(Layer):
         self.output_layer_type = None
         self.output_layer_num = None
         
-        self.output_shape = (self.nb_layers,)
+        self.output_size = (self.nb_layers,)
         self.extrap_start_time = extrap_start_time
 
-        assert data_format == channels_last, 'data_format channels_last not implemented'
+        assert data_format == 'channels_last', 'data_format channels_last not implemented'
         self.data_format = data_format
+
+        # doesn't actually have an state_size
+        # self.state_size = (self.nb_layers * 3, ) + R_stack_sizes
+        self.state_size = list(range(12))
+
+        self.row_axis = -3
+        self.column_axis = -2
+        self.channel_axis = -1
+
         # self.input_spec = [InputSpec(ndim=5)]
 
     
@@ -209,6 +220,30 @@ class PredNetCell(Layer):
         return initial_states
 
 
+    def compute_output_shape(self, input_shape):
+        if self.output_mode == 'prediction':
+            out_shape = input_shape[2:]
+        elif self.output_mode == 'error':
+            out_shape = (self.nb_layers,)
+        elif self.output_mode == 'all':
+            out_shape = (np.prod(input_shape[2:]) + self.nb_layers,)
+        else:
+            stack_str = 'R_stack_sizes' if self.output_layer_type == 'R' else 'stack_sizes'
+            stack_mult = 2 if self.output_layer_type == 'E' else 1
+            out_stack_size = stack_mult * getattr(self, stack_str)[self.output_layer_num]
+            out_nb_row = input_shape[self.row_axis] / 2**self.output_layer_num
+            out_nb_col = input_shape[self.column_axis] / 2**self.output_layer_num
+            if self.data_format == 'channels_first':
+                out_shape = (out_stack_size, out_nb_row, out_nb_col)
+            else:
+                out_shape = (out_nb_row, out_nb_col, out_stack_size)
+                
+        # set_trace()
+        if self.return_sequences:
+            return (input_shape[0], input_shape[1]) + out_shape
+        else:
+            return (input_shape[0],) + out_shape
+
     # def build(self, input_shape):
     #     input_dim = input_shape[-1]
     #     self.kernel = self.add_weight(
@@ -224,6 +259,7 @@ class PredNetCell(Layer):
     #             regularizer=self.recurrent_regularizer,
     #             constraint=self.recurrent_constraint)
     def build(self, input_shape):
+        # set_trace()
         self.input_spec = [InputSpec(shape=input_shape)]
         self.conv_layers = {c: [] for c in ['i', 'f', 'c', 'o', 'a', 'ahat']}
 
@@ -268,7 +304,7 @@ class PredNetCell(Layer):
 
         self.built = True
 
-    def call(self, inputs, states, training=None):
+    def call(self, a, states, training=None):
         r_tm1 = states[:self.nb_layers]
         c_tm1 = states[self.nb_layers:2*self.nb_layers]
         e_tm1 = states[2*self.nb_layers:3*self.nb_layers]
@@ -276,7 +312,7 @@ class PredNetCell(Layer):
         if self.extrap_start_time is not None:
             t = states[-1]
             a = K.switch(t >= self.t_extrap, states[-2], a)  # if past self.extrap_start_time, the previous prediction will be treated as the actual
-        set_trace()
+        # set_trace()
         c = []
         r = []
         e = []
@@ -428,35 +464,44 @@ class PredNet(RNN):
                 output_mode='error',
                 extrap_start_time=None,
                 data_format=K.image_data_format(),
-                return_sequence=False,
+                return_sequences=True,
                 return_state=False,
-                go_backward=False,
+                go_backwards=False,
                 stateful=False,
                 unroll=False,
                 **kwargs):
 
-    cell = PredNetCell(stack_sizes=stack_sizes,
-                        R_stack_sizes=R_stack_sizes,
-                        A_filt_sizes=A_filt_sizes,
-                        Ahat_filt_sizes=Ahat_filt_sizes,
-                        R_filt_sizes=R_filt_sizes,
-                        pixel_max=pixel_max,
-                        error_activation=error_activation,
-                        A_activation=A_activation,
-                        LSTM_activation=LSTM_activation,
-                        LSTM_inner_activation=LSTM_inner_activation,
-                        output_mode=output_mode,
-                        extrap_start_time=extrap_start_time,
-                        data_format=data_format,
-                        **kwargs):
+        cell = PredNetCell(stack_sizes=stack_sizes,
+                            R_stack_sizes=R_stack_sizes,
+                            A_filt_sizes=A_filt_sizes,
+                            Ahat_filt_sizes=Ahat_filt_sizes,
+                            R_filt_sizes=R_filt_sizes,
+                            pixel_max=pixel_max,
+                            error_activation=error_activation,
+                            A_activation=A_activation,
+                            LSTM_activation=LSTM_activation,
+                            LSTM_inner_activation=LSTM_inner_activation,
+                            output_mode=output_mode,
+                            extrap_start_time=extrap_start_time,
+                            data_format=data_format,
+                            return_sequences=return_sequences,
+                            **kwargs)
 
-    super().__init__(cell,
-                    return_sequences=return_sequences,
-                    return_state=return_state,
-                    go_backwards=go_backwards,
-                    stateful=stateful,
-                    unroll=unroll,
-                    **kwargs)
+        super().__init__(cell,
+                        return_sequences=return_sequences,
+                        return_state=return_state,
+                        go_backwards=go_backwards,
+                        stateful=stateful,
+                        unroll=unroll,
+                        **kwargs)
+
+        self.input_spec = [InputSpec(ndim=5)]
+
+    def get_initial_state(self, x):
+        return self.cell.get_initial_state(x)
+
+    def compute_output_shape(self, input_shape):
+        return self.cell.compute_output_shape(input_shape)  
 
     def get_config(self):
         config = {'stack_sizes': self.stack_sizes,
@@ -476,3 +521,12 @@ class PredNet(RNN):
         return dict(list(base_config.items()) + list(config.items()))
 
     # TODO: define properties to return cell's properties
+
+
+    # def __call__(self, x):
+    #     set_trace()
+    #     super(PredNet, self).__call__(x)
+
+    def reset_states(self, states=None):
+        # raise an error to avoid using a fake state_size defined in cell
+        raise NotImplementedError

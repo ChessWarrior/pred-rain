@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start the conversion of tfrecords from data directories with the range specified by arguments.
 # Arguments: The range of the index of the data directories to be converted to tfrecords.
-#	Assumes the folder structure:
+# Assumed folder structure:
 # .
 # ├── data
 # │   ├── SRAD2018_TRAIN_001
@@ -22,14 +22,10 @@ END=$2
 while [ $i -le $END ]
 do
 	N_FORMATTED="$(printf %03i $i)"
-	
+
 	[[ -d log ]] || mkdir log
+	[[ -d ../data/tfrecords ]] || mkdir ../data/tfrecords
 	nohup python cvt2tfrecord.py --data_dir ../data/SRAD2018_TRAIN_$N_FORMATTED/ --records ../data/tfrecords/train_$i &> "log/$i.tfrecords.log" &
 
-	# echo $N_FORMATTED
-	# FN=${URL:85:22}
-
-	# nohup wget -c -O $FN $URL &> "log/$FN.log" &
-	
 	let i+=1
 done

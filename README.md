@@ -16,12 +16,12 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 ### 数据
 
-- [ ] 封装 playground.ipynb 中的 tfrecords 读取和数据增强代码
+- [ ] 封装 playground.ipynb 中的 tfrecords 读取和数据增强代码
 - [ ] 数据增强
     - [x] 把 Fastai 中的数据增强库翻译至tf（部分完成）
     - [ ] Gaussian Blur （tf.images 中缺少高斯模糊函数，自己实现）
     - [ ] Random Lighting
-    - [ ] Random Crop?
+    - [ ] Random Crop?
 - [ ] 实现提议的序列拆分方式
     - [ ] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg)
 

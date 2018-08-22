@@ -10,54 +10,57 @@ from tensorflow.keras.layers import InputSpec
 
 
 class PredNetCell(Layer):
-    """Cell class for the LSTM layer.
+    '''PredNet architecture - Lotter 2016.
+        Stacked convolutional LSTM inspired by predictive coding principles.
 
-    Arguments:
-            units: Positive integer, dimensionality of the output space.
-            activation: Activation function to use.
-                    Default: hyperbolic tangent (`tanh`).
-                    If you pass `None`, no activation is applied
-                    (ie. "linear" activation: `a(x) = x`).
-            recurrent_activation: Activation function to use
-                    for the recurrent step.
-                    Default: hard sigmoid (`hard_sigmoid`).
-                    If you pass `None`, no activation is applied
-                    (ie. "linear" activation: `a(x) = x`).x
-            use_bias: Boolean, whether the layer uses a bias vector.
-            kernel_initializer: Initializer for the `kernel` weights matrix,
-                    used for the linear transformation of the inputs.
-            recurrent_initializer: Initializer for the `recurrent_kernel`
-                    weights matrix,
-                    used for the linear transformation of the recurrent state.
-            bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
-                    If True, add 1 to the bias of the forget gate at initialization.
-                    Setting it to true will also force `bias_initializer="zeros"`.
-                    This is recommended in [Jozefowicz et
-                        al.](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
-            kernel_regularizer: Regularizer function applied to
-                    the `kernel` weights matrix.
-            recurrent_regularizer: Regularizer function applied to
-                    the `recurrent_kernel` weights matrix.
-            bias_regularizer: Regularizer function applied to the bias vector.
-            kernel_constraint: Constraint function applied to
-                    the `kernel` weights matrix.
-            recurrent_constraint: Constraint function applied to
-                    the `recurrent_kernel` weights matrix.
-            bias_constraint: Constraint function applied to the bias vector.
-            dropout: Float between 0 and 1.
-                    Fraction of the units to drop for
-                    the linear transformation of the inputs.
-            recurrent_dropout: Float between 0 and 1.
-                    Fraction of the units to drop for
-                    the linear transformation of the recurrent state.
-            implementation: Implementation mode, either 1 or 2.
-                    Mode 1 will structure its operations as a larger number of
-                    smaller dot products and additions, whereas mode 2 will
-                    batch them into fewer, larger operations. These modes will
-                    have different performance profiles on different hardware and
-                    for different applications.
-    """
+    # Arguments
+        stack_sizes: number of channels in targets (A) and predictions (Ahat) in each layer of the architecture.
+            Length is the number of layers in the architecture.
+            First element is the number of channels in the input.
+            Ex. (3, 16, 32) would correspond to a 3 layer architecture that takes in RGB images and has 16 and 32
+                channels in the second and third layers, respectively.
+        R_stack_sizes: number of channels in the representation (R) modules.
+            Length must equal length of stack_sizes, but the number of channels per layer can be different.
+        A_filt_sizes: filter sizes for the target (A) modules.
+            Has length of 1 - len(stack_sizes).
+            Ex. (3, 3) would mean that targets for layers 2 and 3 are computed by a 3x3 convolution of the errors (E)
+                from the layer below (followed by max-pooling)
+        Ahat_filt_sizes: filter sizes for the prediction (Ahat) modules.
+            Has length equal to length of stack_sizes.
+            Ex. (3, 3, 3) would mean that the predictions for each layer are computed by a 3x3 convolution of the
+                representation (R) modules at each layer.
+        R_filt_sizes: filter sizes for the representation (R) modules.
+            Has length equal to length of stack_sizes.
+            Corresponds to the filter sizes for all convolutions in the LSTM.
+        pixel_max: the maximum pixel value.
+            Used to clip the pixel-layer prediction.
+        error_activation: activation function for the error (E) units.
+        A_activation: activation function for the target (A) and prediction (A_hat) units.
+        LSTM_activation: activation function for the cell and hidden states of the LSTM.
+        LSTM_inner_activation: activation function for the gates in the LSTM.
+        output_mode: either 'error', 'prediction', 'all' or layer specification (ex. R2, see below).
+            Controls what is outputted by the PredNet.
+            If 'error', the mean response of the error (E) units of each layer will be outputted.
+                That is, the output shape will be (batch_size, nb_layers).
+            If 'prediction', the frame prediction will be outputted.
+            If 'all', the output will be the frame prediction concatenated with the mean layer errors.
+                The frame prediction is flattened before concatenation.
+                Nomenclature of 'all' is kept for backwards compatibility, but should not be confused with returning all of the layers of the model
+            For returning the features of a particular layer, output_mode should be of the form unit_type + layer_number.
+                For instance, to return the features of the LSTM "representational" units in the lowest layer, output_mode should be specificied as 'R0'.
+                The possible unit types are 'R', 'Ahat', 'A', and 'E' corresponding to the 'representation', 'prediction', 'target', and 'error' units respectively.
+        extrap_start_time: time step for which model will start extrapolating.
+            Starting at this time step, the prediction from the previous time step will be treated as the "actual"
+        data_format: 'channels_first' or 'channels_last'.
+            It defaults to the `image_data_format` value found in your
+            Keras config file at `~/.keras/keras.json`.
+
+    # References
+        - [Deep predictive coding networks for video prediction and unsupervised learning](https://arxiv.org/abs/1605.08104)
+        - [Long short-term memory](http://deeplearning.cs.cmu.edu/pdfs/Hochreiter97_lstm.pdf)
+        - [Convolutional LSTM network: a machine learning approach for precipitation nowcasting](http://arxiv.org/abs/1506.04214)
+        - [Predictive coding in the visual cortex: a functional interpretation of some extra-classical receptive-field effects](http://www.nature.com/neuro/journal/v2/n1/pdf/nn0199_79.pdf)
+    '''
 
     # def __init__(self,
     #             units,
@@ -125,7 +128,6 @@ class PredNetCell(Layer):
         super().__init__(**kwargs)
         self.stack_sizes = stack_sizes
         self.nb_layers = len(stack_sizes)
-
         assert len(R_stack_sizes) == self.nb_layers, 'len(R_stack_sizes) must equal len(stack_sizes)'
         self.R_stack_sizes = R_stack_sizes
         assert len(A_filt_sizes) == (self.nb_layers - 1), 'len(A_filt_sizes) must equal len(stack_sizes) - 1'
@@ -143,7 +145,7 @@ class PredNetCell(Layer):
 
         # other output modes removed
         assert output_mode == 'error', 'Invalid output_mode: ' + str(output_mode)
-        self.output_mode = output_mode+
+        self.output_mode = output_mode
 
         self.output_layer_type = None
         self.output_layer_num = None
@@ -155,483 +157,322 @@ class PredNetCell(Layer):
         self.data_format = data_format
         # self.input_spec = [InputSpec(ndim=5)]
 
+    
+    # TODO: understand this method
+    def get_initial_state(self, x):
+        input_shape = self.input_spec[0].shape
+        init_nb_row = input_shape[self.row_axis]
+        init_nb_col = input_shape[self.column_axis]
+
+        base_initial_state = K.zeros_like(x)  # (samples, timesteps) + image_shape
+        non_channel_axis = -1 if self.data_format == 'channels_first' else -2
+        for _ in range(2):
+            base_initial_state = K.sum(base_initial_state, axis=non_channel_axis)
+        base_initial_state = K.sum(base_initial_state, axis=1)  # (samples, nb_channels)
+
+        initial_states = []
+        states_to_pass = ['r', 'c', 'e']
+        nlayers_to_pass = {u: self.nb_layers for u in states_to_pass}
+        if self.extrap_start_time is not None:
+           states_to_pass.append('ahat')  # pass prediction in states so can use as actual for t+1 when extrapolating
+           nlayers_to_pass['ahat'] = 1
+        for u in states_to_pass:
+            for l in range(nlayers_to_pass[u]):
+                ds_factor = 2 ** l
+                nb_row = init_nb_row // ds_factor
+                nb_col = init_nb_col // ds_factor
+                if u in ['r', 'c']:
+                    stack_size = self.R_stack_sizes[l]
+                elif u == 'e':
+                    stack_size = 2 * self.stack_sizes[l]
+                elif u == 'ahat':
+                    stack_size = self.stack_sizes[l]
+                output_size = stack_size * nb_row * nb_col  # flattened size
+
+                reducer = K.zeros((input_shape[self.channel_axis], output_size)) # (nb_channels, output_size)
+                initial_state = K.dot(base_initial_state, reducer) # (samples, output_size)
+                if self.data_format == 'channels_first':
+                    output_shp = (-1, stack_size, nb_row, nb_col)
+                else:
+                    output_shp = (-1, nb_row, nb_col, stack_size)
+                initial_state = K.reshape(initial_state, output_shp)
+                initial_states += [initial_state]
+
+        # if K._BACKEND == 'theano':
+        #     from theano import tensor as T
+        #     # There is a known issue in the Theano scan op when dealing with inputs whose shape is 1 along a dimension.
+        #     # In our case, this is a problem when training on grayscale images, and the below line fixes it.
+        #     initial_states = [T.unbroadcast(init_state, 0, 1) for init_state in initial_states]
+
+        if self.extrap_start_time is not None:
+            initial_states += [K.variable(0, int if K.backend() != 'tensorflow' else 'int32')]  # the last state will correspond to the current timestep
+        return initial_states
+
+
+    # def build(self, input_shape):
+    #     input_dim = input_shape[-1]
+    #     self.kernel = self.add_weight(
+    #             shape=(input_dim, self.units * 4),
+    #             name='kernel',
+    #             initializer=self.kernel_initializer,
+    #             regularizer=self.kernel_regularizer,
+    #             constraint=self.kernel_constraint)
+    #     self.recurrent_kernel = self.add_weight(
+    #             shape=(self.units, self.units * 4),
+    #             name='recurrent_kernel',
+    #             initializer=self.recurrent_initializer,
+    #             regularizer=self.recurrent_regularizer,
+    #             constraint=self.recurrent_constraint)
     def build(self, input_shape):
-        input_dim = input_shape[-1]
-        self.kernel = self.add_weight(
-                shape=(input_dim, self.units * 4),
-                name='kernel',
-                initializer=self.kernel_initializer,
-                regularizer=self.kernel_regularizer,
-                constraint=self.kernel_constraint)
-        self.recurrent_kernel = self.add_weight(
-                shape=(self.units, self.units * 4),
-                name='recurrent_kernel',
-                initializer=self.recurrent_initializer,
-                regularizer=self.recurrent_regularizer,
-                constraint=self.recurrent_constraint)
+        self.input_spec = [InputSpec(shape=input_shape)]
+        self.conv_layers = {c: [] for c in ['i', 'f', 'c', 'o', 'a', 'ahat']}
 
-        if self.use_bias:
-            if self.unit_forget_bias:
+        for l in range(self.nb_layers):
+            for c in ['i', 'f', 'c', 'o']:
+                act = self.LSTM_activation if c == 'c' else self.LSTM_inner_activation
+                self.conv_layers[c].append(Conv2D(self.R_stack_sizes[l], self.R_filt_sizes[l], padding='same', activation=act, data_format=self.data_format))
 
-                def bias_initializer(_, *args, **kwargs):
-                    return K.concatenate([
-                            self.bias_initializer((self.units,), *args, **kwargs),
-                            initializers.Ones()((self.units,), *args, **kwargs),
-                            self.bias_initializer((self.units * 2,), *args, **kwargs),
-                    ])
-            else:
-                bias_initializer = self.bias_initializer
-            self.bias = self.add_weight(
-                    shape=(self.units * 4,),
-                    name='bias',
-                    initializer=bias_initializer,
-                    regularizer=self.bias_regularizer,
-                    constraint=self.bias_constraint)
-        else:
-            self.bias = None
+            act = 'relu' if l == 0 else self.A_activation
+            self.conv_layers['ahat'].append(Conv2D(self.stack_sizes[l], self.Ahat_filt_sizes[l], padding='same', activation=act, data_format=self.data_format))
+
+            if l < self.nb_layers - 1:
+                self.conv_layers['a'].append(Conv2D(self.stack_sizes[l+1], self.A_filt_sizes[l], padding='same', activation=self.A_activation, data_format=self.data_format))
+
+        self.upsample = UpSampling2D(data_format=self.data_format)
+        self.pool = MaxPooling2D(data_format=self.data_format)
+
+        self._trainable_weights = []
+        nb_row, nb_col = (input_shape[-2], input_shape[-1]) if self.data_format == 'channels_first' else (input_shape[-3], input_shape[-2])
+        for c in sorted(self.conv_layers.keys()):
+            for l in range(len(self.conv_layers[c])):
+                ds_factor = 2 ** l
+                if c == 'ahat':
+                    nb_channels = self.R_stack_sizes[l]
+                elif c == 'a':
+                    nb_channels = 2 * self.R_stack_sizes[l]
+                else:
+                    nb_channels = self.stack_sizes[l] * 2 + self.R_stack_sizes[l]
+                    if l < self.nb_layers - 1:
+                        nb_channels += self.R_stack_sizes[l+1]
+                in_shape = (input_shape[0], nb_channels, nb_row // ds_factor, nb_col // ds_factor)
+                if self.data_format == 'channels_last': in_shape = (in_shape[0], in_shape[2], in_shape[3], in_shape[1])
+                with K.name_scope('layer_' + c + '_' + str(l)):
+                    self.conv_layers[c][l].build(in_shape)
+                self._trainable_weights += self.conv_layers[c][l].trainable_weights
+
+        self.states = [None] * self.nb_layers*3
+
+        if self.extrap_start_time is not None:
+            self.t_extrap = K.variable(self.extrap_start_time, int if K.backend() != 'tensorflow' else 'int32')
+            self.states += [None] * 2  # [previous frame prediction, timestep]
+
         self.built = True
 
     def call(self, inputs, states, training=None):
-        if 0 < self.dropout < 1 and self._dropout_mask is None:
-            self._dropout_mask = _generate_dropout_mask(
-                    array_ops.ones_like(inputs),
-                    self.dropout,
-                    training=training,
-                    count=4)
-        if (0 < self.recurrent_dropout < 1 and
-                self._recurrent_dropout_mask is None):
-            self._recurrent_dropout_mask = _generate_dropout_mask(
-                    array_ops.ones_like(states[0]),
-                    self.recurrent_dropout,
-                    training=training,
-                    count=4)
+        r_tm1 = states[:self.nb_layers]
+        c_tm1 = states[self.nb_layers:2*self.nb_layers]
+        e_tm1 = states[2*self.nb_layers:3*self.nb_layers]
 
-        # dropout matrices for input units
-        dp_mask = self._dropout_mask
-        # dropout matrices for recurrent units
-        rec_dp_mask = self._recurrent_dropout_mask
+        if self.extrap_start_time is not None:
+            t = states[-1]
+            a = K.switch(t >= self.t_extrap, states[-2], a)  # if past self.extrap_start_time, the previous prediction will be treated as the actual
+        set_trace()
+        c = []
+        r = []
+        e = []
 
-        h_tm1 = states[0]    # previous memory state
-        c_tm1 = states[1]    # previous carry state
+        # Update R units starting from the top
+        for l in reversed(range(self.nb_layers)):
+            inputs = [r_tm1[l], e_tm1[l]]
+            if l < self.nb_layers - 1:
+                inputs.append(r_up)
 
-        if self.implementation == 1:
-            if 0 < self.dropout < 1.:
-                inputs_i = inputs * dp_mask[0]
-                inputs_f = inputs * dp_mask[1]
-                inputs_c = inputs * dp_mask[2]
-                inputs_o = inputs * dp_mask[3]
-            else:
-                inputs_i = inputs
-                inputs_f = inputs
-                inputs_c = inputs
-                inputs_o = inputs
-            x_i = K.dot(inputs_i, self.kernel[:, :self.units])
-            x_f = K.dot(inputs_f, self.kernel[:, self.units:self.units * 2])
-            x_c = K.dot(inputs_c, self.kernel[:, self.units * 2:self.units * 3])
-            x_o = K.dot(inputs_o, self.kernel[:, self.units * 3:])
-            if self.use_bias:
-                x_i = K.bias_add(x_i, self.bias[:self.units])
-                x_f = K.bias_add(x_f, self.bias[self.units:self.units * 2])
-                x_c = K.bias_add(x_c, self.bias[self.units * 2:self.units * 3])
-                x_o = K.bias_add(x_o, self.bias[self.units * 3:])
+            inputs = K.concatenate(inputs, axis=self.channel_axis)
+            i = self.conv_layers['i'][l].call(inputs)
+            f = self.conv_layers['f'][l].call(inputs)
+            o = self.conv_layers['o'][l].call(inputs)
+            _c = f * c_tm1[l] + i * self.conv_layers['c'][l].call(inputs)
+            _r = o * self.LSTM_activation(_c)
+            c.insert(0, _c)
+            r.insert(0, _r)
 
-            if 0 < self.recurrent_dropout < 1.:
-                h_tm1_i = h_tm1 * rec_dp_mask[0]
-                h_tm1_f = h_tm1 * rec_dp_mask[1]
-                h_tm1_c = h_tm1 * rec_dp_mask[2]
-                h_tm1_o = h_tm1 * rec_dp_mask[3]
-            else:
-                h_tm1_i = h_tm1
-                h_tm1_f = h_tm1
-                h_tm1_c = h_tm1
-                h_tm1_o = h_tm1
-            i = self.recurrent_activation(
-                    x_i + K.dot(h_tm1_i, self.recurrent_kernel[:, :self.units]))
-            f = self.recurrent_activation(
-                    x_f + K.dot(h_tm1_f,
-                                            self.recurrent_kernel[:, self.units: self.units * 2]))
-            c = f * c_tm1 + i * self.activation(
-                    x_c + K.dot(h_tm1_c,
-                                            self.recurrent_kernel[:, self.units * 2: self.units * 3]))
-            o = self.recurrent_activation(
-                    x_o + K.dot(h_tm1_o, self.recurrent_kernel[:, self.units * 3:]))
-        else:
-            if 0. < self.dropout < 1.:
-                inputs *= dp_mask[0]
-            z = K.dot(inputs, self.kernel)
-            if 0. < self.recurrent_dropout < 1.:
-                h_tm1 *= rec_dp_mask[0]
-            z += K.dot(h_tm1, self.recurrent_kernel)
-            if self.use_bias:
-                z = K.bias_add(z, self.bias)
+            if l > 0:
+                r_up = self.upsample.call(_r)
 
-            z0 = z[:, :self.units]
-            z1 = z[:, self.units:2 * self.units]
-            z2 = z[:, 2 * self.units:3 * self.units]
-            z3 = z[:, 3 * self.units:]
+        # Update feedforward path starting from the bottom
+        for l in range(self.nb_layers):
+            ahat = self.conv_layers['ahat'][l].call(r[l])
+            if l == 0:
+                ahat = K.minimum(ahat, self.pixel_max)
+                frame_prediction = ahat
 
-            i = self.recurrent_activation(z0)
-            f = self.recurrent_activation(z1)
-            c = f * c_tm1 + i * self.activation(z2)
-            o = self.recurrent_activation(z3)
+            # compute errors
+            e_up = self.error_activation(ahat - a)
+            e_down = self.error_activation(a - ahat)
 
-        h = o * self.activation(c)
-        if 0 < self.dropout + self.recurrent_dropout:
-            if training is None and not context.executing_eagerly():
-                # This would be harmless to set in eager mode, but eager tensors
-                # disallow setting arbitrary attributes.
-                h._uses_learning_phase = True
-        return h, [h, c]
+            e.append(K.concatenate((e_up, e_down), axis=self.channel_axis))
+
+            if self.output_layer_num == l:
+                if self.output_layer_type == 'A':
+                    output = a
+                elif self.output_layer_type == 'Ahat':
+                    output = ahat
+                elif self.output_layer_type == 'R':
+                    output = r[l]
+                elif self.output_layer_type == 'E':
+                    output = e[l]
+
+            if l < self.nb_layers - 1:
+                a = self.conv_layers['a'][l].call(e[l])
+                a = self.pool.call(a)  # target for next layer
+
+        if self.output_layer_type is None:
+            for l in range(self.nb_layers):
+                layer_error = K.mean(K.batch_flatten(e[l]), axis=-1, keepdims=True)
+                all_error = layer_error if l == 0 else K.concatenate((all_error, layer_error), axis=-1)
+            output = all_error
+
+        states = r + c + e
+        if self.extrap_start_time is not None:
+            states += [frame_prediction, t + 1]
+
+        return output, states
 
     def get_config(self):
-        config = {
-                'units':
-                        self.units,
-                'activation':
-                        activations.serialize(self.activation),
-                'recurrent_activation':
-                        activations.serialize(self.recurrent_activation),
-                'use_bias':
-                        self.use_bias,
-                'kernel_initializer':
-                        initializers.serialize(self.kernel_initializer),
-                'recurrent_initializer':
-                        initializers.serialize(self.recurrent_initializer),
-                'bias_initializer':
-                        initializers.serialize(self.bias_initializer),
-                'unit_forget_bias':
-                        self.unit_forget_bias,
-                'kernel_regularizer':
-                        regularizers.serialize(self.kernel_regularizer),
-                'recurrent_regularizer':
-                        regularizers.serialize(self.recurrent_regularizer),
-                'bias_regularizer':
-                        regularizers.serialize(self.bias_regularizer),
-                'kernel_constraint':
-                        constraints.serialize(self.kernel_constraint),
-                'recurrent_constraint':
-                        constraints.serialize(self.recurrent_constraint),
-                'bias_constraint':
-                        constraints.serialize(self.bias_constraint),
-                'dropout':
-                        self.dropout,
-                'recurrent_dropout':
-                        self.recurrent_dropout,
-                'implementation':
-                        self.implementation
-        }
-        base_config = super(LSTMCell, self).get_config()
+        config = {'stack_sizes': self.stack_sizes,
+                  'R_stack_sizes': self.R_stack_sizes,
+                  'A_filt_sizes': self.A_filt_sizes,
+                  'Ahat_filt_sizes': self.Ahat_filt_sizes,
+                  'R_filt_sizes': self.R_filt_sizes,
+                  'pixel_max': self.pixel_max,
+                  'error_activation': self.error_activation.__name__,
+                  'A_activation': self.A_activation.__name__,
+                  'LSTM_activation': self.LSTM_activation.__name__,
+                  'LSTM_inner_activation': self.LSTM_inner_activation.__name__,
+                  'data_format': self.data_format,
+                  'extrap_start_time': self.extrap_start_time,
+                  'output_mode': self.output_mode}
+        base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
-@tf_export('keras.layers.LSTM')
-class LSTM(RNN):
-    """Long Short-Term Memory layer - Hochreiter 1997.
+class PredNet(RNN):
+#     def __init__(self,
+        #                      units,
+        #                      activation='tanh',
+        #                      recurrent_activation='hard_sigmoid',
+        #                      use_bias=True,
+        #                      kernel_initializer='glorot_uniform',
+        #                      recurrent_initializer='orthogonal',
+        #                      bias_initializer='zeros',
+        #                      unit_forget_bias=True,
+        #                      kernel_regularizer=None,
+        #                      recurrent_regularizer=None,
+        #                      bias_regularizer=None,
+        #                      activity_regularizer=None,
+        #                      kernel_constraint=None,
+        #                      recurrent_constraint=None,
+        #                      bias_constraint=None,
+        #                      dropout=0.,
+        #                      recurrent_dropout=0.,
+        #                      implementation=1,
+        #                      return_sequences=False,
+        #                      return_state=False,
+        #                      go_backwards=False,
+        #                      stateful=False,
+        #                      unroll=False,
+        #                      **kwargs):
+        # if implementation == 0:
+        #     logging.warning('`implementation=0` has been deprecated, '
+        #                                     'and now defaults to `implementation=1`.'
+        #                                     'Please update your layer call.')
+        # cell = LSTMCell(
+        #         units,
+        #         activation=activation,
+        #         recurrent_activation=recurrent_activation,
+        #         use_bias=use_bias,
+        #         kernel_initializer=kernel_initializer,
+        #         recurrent_initializer=recurrent_initializer,
+        #         unit_forget_bias=unit_forget_bias,
+        #         bias_initializer=bias_initializer,
+        #         kernel_regularizer=kernel_regularizer,
+        #         recurrent_regularizer=recurrent_regularizer,
+        #         bias_regularizer=bias_regularizer,
+        #         kernel_constraint=kernel_constraint,
+        #         recurrent_constraint=recurrent_constraint,
+        #         bias_constraint=bias_constraint,
+        #         dropout=dropout,
+        #         recurrent_dropout=recurrent_dropout,
+        #         implementation=implementation)
+        # super(LSTM, self).__init__(
+        #         cell,
+        #         return_sequences=return_sequences,
+        #         return_state=return_state,
+        #         go_backwards=go_backwards,
+        #         stateful=stateful,
+        #         unroll=unroll,
+        #         **kwargs)
+        # self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    Arguments:
-            units: Positive integer, dimensionality of the output space.
-            activation: Activation function to use.
-                    Default: hyperbolic tangent (`tanh`).
-                    If you pass `None`, no activation is applied
-                    (ie. "linear" activation: `a(x) = x`).
-            recurrent_activation: Activation function to use
-                    for the recurrent step.
-                    Default: hard sigmoid (`hard_sigmoid`).
-                    If you pass `None`, no activation is applied
-                    (ie. "linear" activation: `a(x) = x`).
-            use_bias: Boolean, whether the layer uses a bias vector.
-            kernel_initializer: Initializer for the `kernel` weights matrix,
-                    used for the linear transformation of the inputs..
-            recurrent_initializer: Initializer for the `recurrent_kernel`
-                    weights matrix,
-                    used for the linear transformation of the recurrent state..
-            bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
-                    If True, add 1 to the bias of the forget gate at initialization.
-                    Setting it to true will also force `bias_initializer="zeros"`.
-                    This is recommended in [Jozefowicz et
-                        al.](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
-            kernel_regularizer: Regularizer function applied to
-                    the `kernel` weights matrix.
-            recurrent_regularizer: Regularizer function applied to
-                    the `recurrent_kernel` weights matrix.
-            bias_regularizer: Regularizer function applied to the bias vector.
-            activity_regularizer: Regularizer function applied to
-                    the output of the layer (its "activation")..
-            kernel_constraint: Constraint function applied to
-                    the `kernel` weights matrix.
-            recurrent_constraint: Constraint function applied to
-                    the `recurrent_kernel` weights matrix.
-            bias_constraint: Constraint function applied to the bias vector.
-            dropout: Float between 0 and 1.
-                    Fraction of the units to drop for
-                    the linear transformation of the inputs.
-            recurrent_dropout: Float between 0 and 1.
-                    Fraction of the units to drop for
-                    the linear transformation of the recurrent state.
-            implementation: Implementation mode, either 1 or 2.
-                    Mode 1 will structure its operations as a larger number of
-                    smaller dot products and additions, whereas mode 2 will
-                    batch them into fewer, larger operations. These modes will
-                    have different performance profiles on different hardware and
-                    for different applications.
-            return_sequences: Boolean. Whether to return the last output.
-                    in the output sequence, or the full sequence.
-            return_state: Boolean. Whether to return the last state
-                    in addition to the output.
-            go_backwards: Boolean (default False).
-                    If True, process the input sequence backwards and return the
-                    reversed sequence.
-            stateful: Boolean (default False). If True, the last state
-                    for each sample at index i in a batch will be used as initial
-                    state for the sample of index i in the following batch.
-            unroll: Boolean (default False).
-                    If True, the network will be unrolled,
-                    else a symbolic loop will be used.
-                    Unrolling can speed-up a RNN,
-                    although it tends to be more memory-intensive.
-                    Unrolling is only suitable for short sequences.
+    def __init__(self, 
+                stack_sizes,
+                R_stack_sizes,
+                A_filt_sizes,
+                Ahat_filt_sizes,
+                R_filt_sizes,
+                pixel_max=1.,
+                error_activation='relu',
+                A_activation='relu',
+                LSTM_activation='tanh', 
+                LSTM_inner_activation='hard_sigmoid',
+                output_mode='error',
+                extrap_start_time=None,
+                data_format=K.image_data_format(),
+                return_sequence=False,
+                return_state=False,
+                go_backward=False,
+                stateful=False,
+                unroll=False,
+                **kwargs):
 
-    """
+    cell = PredNetCell(stack_sizes=stack_sizes,
+                        R_stack_sizes=R_stack_sizes,
+                        A_filt_sizes=A_filt_sizes,
+                        Ahat_filt_sizes=Ahat_filt_sizes,
+                        R_filt_sizes=R_filt_sizes,
+                        pixel_max=pixel_max,
+                        error_activation=error_activation,
+                        A_activation=A_activation,
+                        LSTM_activation=LSTM_activation,
+                        LSTM_inner_activation=LSTM_inner_activation,
+                        output_mode=output_mode,
+                        extrap_start_time=extrap_start_time,
+                        data_format=data_format,
+                        **kwargs):
 
-    def __init__(self,
-                             units,
-                             activation='tanh',
-                             recurrent_activation='hard_sigmoid',
-                             use_bias=True,
-                             kernel_initializer='glorot_uniform',
-                             recurrent_initializer='orthogonal',
-                             bias_initializer='zeros',
-                             unit_forget_bias=True,
-                             kernel_regularizer=None,
-                             recurrent_regularizer=None,
-                             bias_regularizer=None,
-                             activity_regularizer=None,
-                             kernel_constraint=None,
-                             recurrent_constraint=None,
-                             bias_constraint=None,
-                             dropout=0.,
-                             recurrent_dropout=0.,
-                             implementation=1,
-                             return_sequences=False,
-                             return_state=False,
-                             go_backwards=False,
-                             stateful=False,
-                             unroll=False,
-                             **kwargs):
-        if implementation == 0:
-            logging.warning('`implementation=0` has been deprecated, '
-                                            'and now defaults to `implementation=1`.'
-                                            'Please update your layer call.')
-        cell = LSTMCell(
-                units,
-                activation=activation,
-                recurrent_activation=recurrent_activation,
-                use_bias=use_bias,
-                kernel_initializer=kernel_initializer,
-                recurrent_initializer=recurrent_initializer,
-                unit_forget_bias=unit_forget_bias,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=kernel_regularizer,
-                recurrent_regularizer=recurrent_regularizer,
-                bias_regularizer=bias_regularizer,
-                kernel_constraint=kernel_constraint,
-                recurrent_constraint=recurrent_constraint,
-                bias_constraint=bias_constraint,
-                dropout=dropout,
-                recurrent_dropout=recurrent_dropout,
-                implementation=implementation)
-        super(LSTM, self).__init__(
-                cell,
-                return_sequences=return_sequences,
-                return_state=return_state,
-                go_backwards=go_backwards,
-                stateful=stateful,
-                unroll=unroll,
-                **kwargs)
-        self.activity_regularizer = regularizers.get(activity_regularizer)
-
-    def call(self, inputs, mask=None, training=None, initial_state=None):
-        self.cell._dropout_mask = None
-        self.cell._recurrent_dropout_mask = None
-        return super(LSTM, self).call(
-                inputs, mask=mask, training=training, initial_state=initial_state)
-
-    @property
-    def units(self):
-        return self.cell.units
-
-    @property
-    def activation(self):
-        return self.cell.activation
-
-    @property
-    def recurrent_activation(self):
-        return self.cell.recurrent_activation
-
-    @property
-    def use_bias(self):
-        return self.cell.use_bias
-
-    @property
-    def kernel_initializer(self):
-        return self.cell.kernel_initializer
-
-    @property
-    def recurrent_initializer(self):
-        return self.cell.recurrent_initializer
-
-    @property
-    def bias_initializer(self):
-        return self.cell.bias_initializer
-
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
-
-    @property
-    def kernel_regularizer(self):
-        return self.cell.kernel_regularizer
-
-    @property
-    def recurrent_regularizer(self):
-        return self.cell.recurrent_regularizer
-
-    @property
-    def bias_regularizer(self):
-        return self.cell.bias_regularizer
-
-    @property
-    def kernel_constraint(self):
-        return self.cell.kernel_constraint
-
-    @property
-    def recurrent_constraint(self):
-        return self.cell.recurrent_constraint
-
-    @property
-    def bias_constraint(self):
-        return self.cell.bias_constraint
-
-    @property
-    def dropout(self):
-        return self.cell.dropout
-
-    @property
-    def recurrent_dropout(self):
-        return self.cell.recurrent_dropout
-
-    @property
-    def implementation(self):
-        return self.cell.implementation
+    super().__init__(cell,
+                    return_sequences=return_sequences,
+                    return_state=return_state,
+                    go_backwards=go_backwards,
+                    stateful=stateful,
+                    unroll=unroll,
+                    **kwargs)
 
     def get_config(self):
-        config = {
-                'units':
-                        self.units,
-                'activation':
-                        activations.serialize(self.activation),
-                'recurrent_activation':
-                        activations.serialize(self.recurrent_activation),
-                'use_bias':
-                        self.use_bias,
-                'kernel_initializer':
-                        initializers.serialize(self.kernel_initializer),
-                'recurrent_initializer':
-                        initializers.serialize(self.recurrent_initializer),
-                'bias_initializer':
-                        initializers.serialize(self.bias_initializer),
-                'unit_forget_bias':
-                        self.unit_forget_bias,
-                'kernel_regularizer':
-                        regularizers.serialize(self.kernel_regularizer),
-                'recurrent_regularizer':
-                        regularizers.serialize(self.recurrent_regularizer),
-                'bias_regularizer':
-                        regularizers.serialize(self.bias_regularizer),
-                'activity_regularizer':
-                        regularizers.serialize(self.activity_regularizer),
-                'kernel_constraint':
-                        constraints.serialize(self.kernel_constraint),
-                'recurrent_constraint':
-                        constraints.serialize(self.recurrent_constraint),
-                'bias_constraint':
-                        constraints.serialize(self.bias_constraint),
-                'dropout':
-                        self.dropout,
-                'recurrent_dropout':
-                        self.recurrent_dropout,
-                'implementation':
-                        self.implementation
-        }
-        base_config = super(LSTM, self).get_config()
-        del base_config['cell']
+        config = {'stack_sizes': self.stack_sizes,
+                  'R_stack_sizes': self.R_stack_sizes,
+                  'A_filt_sizes': self.A_filt_sizes,
+                  'Ahat_filt_sizes': self.Ahat_filt_sizes,
+                  'R_filt_sizes': self.R_filt_sizes,
+                  'pixel_max': self.pixel_max,
+                  'error_activation': self.error_activation.__name__,
+                  'A_activation': self.A_activation.__name__,
+                  'LSTM_activation': self.LSTM_activation.__name__,
+                  'LSTM_inner_activation': self.LSTM_inner_activation.__name__,
+                  'data_format': self.data_format,
+                  'extrap_start_time': self.extrap_start_time,
+                  'output_mode': self.output_mode}
+        base_config = super(PredNet, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-    @classmethod
-    def from_config(cls, config):
-        if 'implementation' in config and config['implementation'] == 0:
-            config['implementation'] = 1
-        return cls(**config)
-
-
-def _generate_dropout_mask(ones, rate, training=None, count=1):
-    def dropped_inputs():
-        return K.dropout(ones, rate)
-
-    if count > 1:
-        return [
-                K.in_train_phase(dropped_inputs, ones, training=training)
-                for _ in range(count)
-        ]
-    return K.in_train_phase(dropped_inputs, ones, training=training)
-
-
-def _standardize_args(inputs, initial_state, constants, num_constants):
-    """Standardizes `__call__` to a single list of tensor inputs.
-
-    When running a model loaded from a file, the input tensors
-    `initial_state` and `constants` can be passed to `RNN.__call__()` as part
-    of `inputs` instead of by the dedicated keyword arguments. This method
-    makes sure the arguments are separated and that `initial_state` and
-    `constants` are lists of tensors (or None).
-
-    Arguments:
-            inputs: Tensor or list/tuple of tensors. which may include constants
-                and initial states. In that case `num_constant` must be specified.
-            initial_state: Tensor or list of tensors or None, initial states.
-            constants: Tensor or list of tensors or None, constant tensors.
-            num_constants: Expected number of constants (if constants are passed as
-                part of the `inputs` list.
-
-    Returns:
-            inputs: Single tensor.
-            initial_state: List of tensors or None.
-            constants: List of tensors or None.
-    """
-    if isinstance(inputs, list):
-        assert initial_state is None and constants is None
-        if num_constants is not None:
-            constants = inputs[-num_constants:]
-            inputs = inputs[:-num_constants]
-        if len(inputs) > 1:
-            initial_state = inputs[1:]
-        inputs = inputs[0]
-
-    def to_list_or_none(x):
-        if x is None or isinstance(x, list):
-            return x
-        if isinstance(x, tuple):
-            return list(x)
-        return [x]
-
-    initial_state = to_list_or_none(initial_state)
-    constants = to_list_or_none(constants)
-
-    return inputs, initial_state, constants
-
-
-def _is_multiple_state(state_size):
-    """Check whether the state_size contains multiple states."""
-    return (hasattr(state_size, '__len__') and
-                    not isinstance(state_size, tensor_shape.TensorShape))
+    # TODO: define properties to return cell's properties

@@ -61,32 +61,12 @@ class PredNetCell(Layer):
         - [Convolutional LSTM network: a machine learning approach for precipitation nowcasting](http://arxiv.org/abs/1506.04214)
         - [Predictive coding in the visual cortex: a functional interpretation of some extra-classical receptive-field effects](http://www.nature.com/neuro/journal/v2/n1/pdf/nn0199_79.pdf)
     '''
-
-    # def __init__(self,
-    #             units,
-    #             activation='tanh',
-    #             recurrent_activation='hard_sigmoid',
-    #             use_bias=True,
-    #             kernel_initializer='glorot_uniform',
-    #             recurrent_initializer='orthogonal',
-    #             bias_initializer='zeros',
-    #             unit_forget_bias=True,
-    #             kernel_regularizer=None,
-    #             recurrent_regularizer=None,
-    #             bias_regularizer=None,
-    #             kernel_constraint=None,
-    #             recurrent_constraint=None,
-    #             bias_constraint=None,
-    #             dropout=0.,
-    #             recurrent_dropout=0.,
-    #             implementation=1,
-    #             **kwargs):
     def __init__(self, 
-                stack_sizes,
-                R_stack_sizes,
-                A_filt_sizes,
-                Ahat_filt_sizes,
-                R_filt_sizes,
+                stack_sizes=None,
+                R_stack_sizes=None,
+                A_filt_sizes=None,
+                Ahat_filt_sizes=None,
+                R_filt_sizes=None,
                 pixel_max=1.,
                 error_activation='relu',
                 A_activation='relu',
@@ -97,35 +77,6 @@ class PredNetCell(Layer):
                 data_format=K.image_data_format(),
                 return_sequences=True,
                 **kwargs):
-
-        # super(LSTMCell, self).__init__(**kwargs)
-        # self.units = units
-        # self.activation = activations.get(activation)
-        # self.recurrent_activation = activations.get(recurrent_activation)
-        # self.use_bias = use_bias
-
-        # self.kernel_initializer = initializers.get(kernel_initializer)
-        # self.recurrent_initializer = initializers.get(recurrent_initializer)
-        # self.bias_initializer = initializers.get(bias_initializer)
-        # self.unit_forget_bias = unit_forget_bias
-
-        # self.kernel_regularizer = regularizers.get(kernel_regularizer)
-        # self.recurrent_regularizer = regularizers.get(recurrent_regularizer)
-        # self.bias_regularizer = regularizers.get(bias_regularizer)
-
-        # self.kernel_constraint = constraints.get(kernel_constraint)
-        # self.recurrent_constraint = constraints.get(recurrent_constraint)
-        # self.bias_constraint = constraints.get(bias_constraint)
-
-        # self.dropout = min(1., max(0., dropout))
-        # self.recurrent_dropout = min(1., max(0., recurrent_dropout))
-        # self.implementation = implementation
-        # self.state_size = (self.units, self.units)
-        # self.output_size = self.units
-        # self._dropout_mask = None
-        # self._recurrent_dropout_mask = None
-
-
         super().__init__(**kwargs)
         self.stack_sizes = stack_sizes
         self.nb_layers = len(stack_sizes)
@@ -393,107 +344,21 @@ class PredNetCell(Layer):
 
 
 class PredNet(RNN):
-#     def __init__(self,
-        #                      units,
-        #                      activation='tanh',
-        #                      recurrent_activation='hard_sigmoid',
-        #                      use_bias=True,
-        #                      kernel_initializer='glorot_uniform',
-        #                      recurrent_initializer='orthogonal',
-        #                      bias_initializer='zeros',
-        #                      unit_forget_bias=True,
-        #                      kernel_regularizer=None,
-        #                      recurrent_regularizer=None,
-        #                      bias_regularizer=None,
-        #                      activity_regularizer=None,
-        #                      kernel_constraint=None,
-        #                      recurrent_constraint=None,
-        #                      bias_constraint=None,
-        #                      dropout=0.,
-        #                      recurrent_dropout=0.,
-        #                      implementation=1,
-        #                      return_sequences=False,
-        #                      return_state=False,
-        #                      go_backwards=False,
-        #                      stateful=False,
-        #                      unroll=False,
-        #                      **kwargs):
-        # if implementation == 0:
-        #     logging.warning('`implementation=0` has been deprecated, '
-        #                                     'and now defaults to `implementation=1`.'
-        #                                     'Please update your layer call.')
-        # cell = LSTMCell(
-        #         units,
-        #         activation=activation,
-        #         recurrent_activation=recurrent_activation,
-        #         use_bias=use_bias,
-        #         kernel_initializer=kernel_initializer,
-        #         recurrent_initializer=recurrent_initializer,
-        #         unit_forget_bias=unit_forget_bias,
-        #         bias_initializer=bias_initializer,
-        #         kernel_regularizer=kernel_regularizer,
-        #         recurrent_regularizer=recurrent_regularizer,
-        #         bias_regularizer=bias_regularizer,
-        #         kernel_constraint=kernel_constraint,
-        #         recurrent_constraint=recurrent_constraint,
-        #         bias_constraint=bias_constraint,
-        #         dropout=dropout,
-        #         recurrent_dropout=recurrent_dropout,
-        #         implementation=implementation)
-        # super(LSTM, self).__init__(
-        #         cell,
-        #         return_sequences=return_sequences,
-        #         return_state=return_state,
-        #         go_backwards=go_backwards,
-        #         stateful=stateful,
-        #         unroll=unroll,
-        #         **kwargs)
-        # self.activity_regularizer = regularizers.get(activity_regularizer)
-
-    def __init__(self, 
-                stack_sizes,
-                R_stack_sizes,
-                A_filt_sizes,
-                Ahat_filt_sizes,
-                R_filt_sizes,
-                pixel_max=1.,
-                error_activation='relu',
-                A_activation='relu',
-                LSTM_activation='tanh', 
-                LSTM_inner_activation='hard_sigmoid',
-                output_mode='error',
-                extrap_start_time=None,
-                data_format=K.image_data_format(),
+    def __init__(self,
+                cell,
                 return_sequences=True,
                 return_state=False,
                 go_backwards=False,
                 stateful=False,
                 unroll=False,
                 **kwargs):
-
-        cell = PredNetCell(stack_sizes=stack_sizes,
-                            R_stack_sizes=R_stack_sizes,
-                            A_filt_sizes=A_filt_sizes,
-                            Ahat_filt_sizes=Ahat_filt_sizes,
-                            R_filt_sizes=R_filt_sizes,
-                            pixel_max=pixel_max,
-                            error_activation=error_activation,
-                            A_activation=A_activation,
-                            LSTM_activation=LSTM_activation,
-                            LSTM_inner_activation=LSTM_inner_activation,
-                            output_mode=output_mode,
-                            extrap_start_time=extrap_start_time,
-                            data_format=data_format,
-                            return_sequences=return_sequences,
-                            **kwargs)
-
         super().__init__(cell,
                         return_sequences=return_sequences,
                         return_state=return_state,
                         go_backwards=go_backwards,
                         stateful=stateful,
-                        unroll=unroll,
-                        **kwargs)
+                        unroll=unroll,)
+                        # **kwargs)
 
         self.input_spec = [InputSpec(ndim=5)]
 
@@ -504,28 +369,23 @@ class PredNet(RNN):
         return self.cell.compute_output_shape(input_shape)  
 
     def get_config(self):
-        config = {'stack_sizes': self.stack_sizes,
-                  'R_stack_sizes': self.R_stack_sizes,
-                  'A_filt_sizes': self.A_filt_sizes,
-                  'Ahat_filt_sizes': self.Ahat_filt_sizes,
-                  'R_filt_sizes': self.R_filt_sizes,
-                  'pixel_max': self.pixel_max,
-                  'error_activation': self.error_activation.__name__,
-                  'A_activation': self.A_activation.__name__,
-                  'LSTM_activation': self.LSTM_activation.__name__,
-                  'LSTM_inner_activation': self.LSTM_inner_activation.__name__,
-                  'data_format': self.data_format,
-                  'extrap_start_time': self.extrap_start_time,
-                  'output_mode': self.output_mode}
-        base_config = super(PredNet, self).get_config()
+        config = {'stack_sizes': self.cell.stack_sizes,
+                    'R_stack_sizes': self.cell.R_stack_sizes,
+                    'A_filt_sizes': self.cell.A_filt_sizes,
+                    'Ahat_filt_sizes': self.cell.Ahat_filt_sizes,
+                    'R_filt_sizes': self.cell.R_filt_sizes,
+                    'pixel_max': self.cell.pixel_max,
+                    'error_activation': self.cell.error_activation.__name__,
+                    'A_activation': self.cell.A_activation.__name__,
+                    'LSTM_activation': self.cell.LSTM_activation.__name__,
+                    'LSTM_inner_activation':  self.cell.LSTM_inner_activation.__name__,
+                    'data_format': self.cell.data_format,
+                    'extrap_start_time': self.cell.extrap_start_time,
+                    'output_mode': self.cell.output_mode}
+        base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     # TODO: define properties to return cell's properties
-
-
-    # def __call__(self, x):
-    #     set_trace()
-    #     super(PredNet, self).__call__(x)
 
     def reset_states(self, states=None):
         # raise an error to avoid using a fake state_size defined in cell

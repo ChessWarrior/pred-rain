@@ -40,6 +40,7 @@ class Cvter():
     def convert_skipping(self, stop, nt=None):
         # write skipping sequences of __stop__ stop to the tfrecords file
         # if nt is not None, skipping sequences are split into subsequences of length nt
+        # Caveat: think about how to recover the order of prediction when the result is truncated.
         writer = tf.python_io.TFRecordWriter(self.file_name)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
         for subdir in tqdm_notebook(subdirs, desc=f'Processing subdirectory {self.data_dir}'):

@@ -16,25 +16,25 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 ### 数据
 
-- [ ] 封装 playground.ipynb 中的 tfrecords 读取和数据增强代码
+- [x] 封装 playground.ipynb 中的 tfrecords 读取和数据增强代码
 - [ ] 数据增强
     - [x] 把 Fastai 中的数据增强库翻译至tf（部分完成）
     - [ ] Gaussian Blur （tf.images 中缺少高斯模糊函数，自己实现）
     - [ ] Random Lighting
     - [ ] Random Crop?
-- [ ] 实现提议的序列拆分方式
-    - [ ] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg)
+- 实现提议的序列拆分方式
+    - [x] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg)
 
 ### 模型
 
-- [ ] Refactor PredNet into atomic RNN cells
-- [ ] Inherit Keras RNN module
-- [ ] Integrate sequence data training technics
+- [x] Refactor PredNet into atomic RNN cells
+- [x] Inherit Keras RNN module
+- Integrate sequence data training technics
     - [ ] Go bidirectional
     - [ ] [QANet](https://arxiv.org/abs/1804.09541)
     - [ ] ["Google's Neural Machine Translation System"](https://arxiv.org/abs/1609.08144)
     - [ ] ["HAR Stacked residual bidir LSTMs"](https://arxiv.org/abs/1708.08989)
-- [ ] Experiments
+-  Experiments
     - Needs a calibrated dataset to verify proposals.
     - [ ] Dilation: Deeplab
     - [ ] [Multiscale encoders](http://openaccess.thecvf.com/content_cvpr_2018_workshops/papers/w4/Zhou_D-LinkNet_LinkNet_With_CVPR_2018_paper.pdf)
@@ -55,10 +55,10 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 ### 训练
 
-- Learning Rate Scheduler
-    - [ ] Super Convergence
-    - [ ] Cosine Annealing with Warm Restarts
-- [ ] Progressive resizing
+- Learning Rate Scheduler ([One Cycle Learning Rate Policy for Keras](https://github.com/titu1994/keras-one-cycle))
+    - [x] Super Convergence
+    - [x] Cosine Annealing with Warm Restarts
+- [x] Progressive resizing
 
 ### Docs
 Check grammar

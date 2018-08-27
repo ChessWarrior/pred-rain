@@ -14,6 +14,13 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 ## TODO
 
+### Next Actions
+
+- [ ] Plot images as gif animation (reference: [Berkeley's vedio prediction repo](https://alexlee-gk.github.io/video_prediction/))
+- [ ] Calculate tfrecords length
+- [ ] Create modified model versions and label them appropriately
+- [ ] Calculate batch_size (bs) according to the number of model parameters and variable size.
+
 ### 数据
 
 - [x] 封装 playground.ipynb 中的 tfrecords 读取和数据增强代码
@@ -50,7 +57,7 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 ### Loss
 
-> "training objective and evaluation metric should be as close as possible"
+> "Training objective and evaluation metric should be as close as possible."
 - [ ] What is the yes/no (raining) algorithm?
 
 ### 训练

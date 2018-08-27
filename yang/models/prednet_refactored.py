@@ -97,7 +97,8 @@ class PredNetCell(Layer):
         self.LSTM_inner_activation = activations.get(LSTM_inner_activation)
 
         # other output modes removed
-        assert output_mode == 'error', 'Invalid output_mode: ' + str(output_mode)
+        default_output_modes = ['prediction', 'error', 'all']
+        assert output_mode in default_output_modes, 'Invalid output_mode: ' + str(output_mode)
         self.output_mode = output_mode
 
         self.output_layer_type = None
@@ -179,6 +180,8 @@ class PredNetCell(Layer):
         elif self.output_mode == 'all':
             out_shape = (np.prod(input_shape[2:]) + self.nb_layers,)
         else:
+            # This branch is currently dead
+            
             stack_str = 'R_stack_sizes' if self.output_layer_type == 'R' else 'stack_sizes'
             stack_mult = 2 if self.output_layer_type == 'E' else 1
             out_stack_size = stack_mult * getattr(self, stack_str)[self.output_layer_num]
@@ -189,26 +192,11 @@ class PredNetCell(Layer):
             else:
                 out_shape = (out_nb_row, out_nb_col, out_stack_size)
                 
-        # set_trace()
         if self.return_sequences:
             return (input_shape[0], input_shape[1]) + out_shape
         else:
             return (input_shape[0],) + out_shape
-
-    # def build(self, input_shape):
-    #     input_dim = input_shape[-1]
-    #     self.kernel = self.add_weight(
-    #             shape=(input_dim, self.units * 4),
-    #             name='kernel',
-    #             initializer=self.kernel_initializer,
-    #             regularizer=self.kernel_regularizer,
-    #             constraint=self.kernel_constraint)
-    #     self.recurrent_kernel = self.add_weight(
-    #             shape=(self.units, self.units * 4),
-    #             name='recurrent_kernel',
-    #             initializer=self.recurrent_initializer,
-    #             regularizer=self.recurrent_regularizer,
-    #             constraint=self.recurrent_constraint)
+    
     def build(self, input_shape):
         # set_trace()
         self.input_spec = [InputSpec(shape=input_shape)]
@@ -314,10 +302,16 @@ class PredNetCell(Layer):
                 a = self.pool.call(a)  # target for next layer
 
         if self.output_layer_type is None:
-            for l in range(self.nb_layers):
-                layer_error = K.mean(K.batch_flatten(e[l]), axis=-1, keepdims=True)
-                all_error = layer_error if l == 0 else K.concatenate((all_error, layer_error), axis=-1)
-            output = all_error
+            if self.output_mode == 'prediction':
+                output = frame_prediction
+            else:
+                for l in range(self.nb_layers):
+                    layer_error = K.mean(K.batch_flatten(e[l]), axis=-1, keepdims=True)
+                    all_error = layer_error if l == 0 else K.concatenate((all_error, layer_error), axis=-1)
+                if self.output_mode == 'error':
+                    output = all_error
+                else:
+                    output = K.concatenate((K.batch_flatten(frame_prediction), all_error), axis=-1)
 
         states = r + c + e
         if self.extrap_start_time is not None:
@@ -352,6 +346,7 @@ class PredNet(RNN):
                 stateful=False,
                 unroll=False,
                 **kwargs):
+        
         super().__init__(cell,
                         return_sequences=return_sequences,
                         return_state=return_state,

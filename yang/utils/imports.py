@@ -31,6 +31,7 @@ matplotlib.rc('animation', html='html5')
 np.set_printoptions(precision=5, linewidth=110, suppress=True)
 
 from IPython.core.debugger import set_trace
+from .plots import *
 
 from ipykernel.kernelapp import IPKernelApp
 def in_notebook(): return IPKernelApp.initialized()

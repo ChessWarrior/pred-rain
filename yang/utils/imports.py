@@ -1,8 +1,4 @@
 import tensorflow as tf
-# from tensorflow.keras.layers import *
-# import tensorflow.keras as keras
-# from tensorflow.keras import backend as K
-# from tensorflow.keras.models import Model
 
 from IPython.lib.deepreload import reload as dreload
 import PIL, os, numpy as np, math, collections, threading, json, bcolz, random, scipy, cv2

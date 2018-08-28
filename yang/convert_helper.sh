@@ -26,15 +26,16 @@ END=$2
 MODE=$3
 NT=$4
 STOP=$5
+
 while [ $i -le $END ]
 do
 	N_FORMATTED="$(printf %03i $i)"
 
-	[[ -d log ]] || mkdir log
+	[[ -d cvt_logs ]] || mkdir cvt_logs
 	[[ -d ../data/tfrecords ]] || mkdir ../data/tfrecords
 	
-	LOG_FN=log/"$i"_"$MODE"_"$NT".tfrecords.log
+	LOG_FN=cvt_logs/"$i"_"$MODE"_"$NT".tfrecords.log
 	nohup python cvt2tfrecord.py --data_dir ../data/SRAD2018_TRAIN_$N_FORMATTED/ --records ../data/tfrecords/train_"$i"_"$MODE"_"$NT" --mode=$MODE --nt=$NT -stop=$STOP &> $LOG_FN &
-
+    
 	let i+=1
 done

@@ -4,6 +4,13 @@ import tensorflow as tf
 from utils.imports import *
 import argparse
 
+def fn_record_to_count(fn):
+    fn_count = Path(fn)
+    parent, name = fn_count.parent, fn_count.name
+    name = 'count_' + name + '.txt'
+    fn_count = str(parent/name)
+    return fn_count
+
 class Cvter():
     def __init__(self, file_name, data_dir):
         self.file_name, self.data_dir = file_name, data_dir
@@ -11,8 +18,11 @@ class Cvter():
     def convert_contiguous(self, nt):
         # write sequences of length nt to the tfrecords file
         # remainder frames are discarded
-        writer = tf.python_io.TFRecordWriter(self.file_name)
+        fn_records = self.file_name + '.tfrecords'
+        writer = tf.python_io.TFRecordWriter(fn_records)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
+        num_iterations = 0
+        
         for subdir in tqdm_notebook(subdirs, desc=f'Processing subdirectory {self.data_dir}'):
             if subdir.is_dir(): # for subdirecories
                 time_stamp = subdir.name
@@ -24,8 +34,9 @@ class Cvter():
                     for fn in fn_sequence:
                         with open(str(fn), 'rb') as raw_png_open:
                             raw_png.append(raw_png_open.read())
-                
+                            
                     # execute for each sequence
+                    num_iterations += len(raw_png)
                     context = tf.train.Features(feature={
                         'time_stamp': self._bytes_feature(time_stamp.encode())
                     })
@@ -36,13 +47,20 @@ class Cvter():
                     )
                     sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
                     writer.write(sequence_example.SerializeToString())
+        
+        # write the number of iterations this record contains
+        with open(fn_record_to_count(self.file_name), 'w') as f:
+            f.write(str(num_iterations))
 
     def convert_skipping(self, stop, nt=None):
         # write skipping sequences of __stop__ stop to the tfrecords file
         # if nt is not None, skipping sequences are split into subsequences of length nt
         # Caveat: think about how to recover the order of prediction when the result is truncated.
-        writer = tf.python_io.TFRecordWriter(self.file_name)
+        fn_records = self.file_name + '.tfrecords'
+        writer = tf.python_io.TFRecordWriter(fn_records)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
+        num_iterations = 0
+        
         for subdir in tqdm_notebook(subdirs, desc=f'Processing subdirectory {self.data_dir}'):
             if subdir.is_dir(): # for subdirecories
                 time_stamp = subdir.name
@@ -60,6 +78,7 @@ class Cvter():
                             raw_png.append(raw_png_open.read())
                 
                     # execute for each sequence
+                    num_iterations += len(raw_png)
                     context = tf.train.Features(feature={
                         'time_stamp': self._bytes_feature(time_stamp.encode())
                     })
@@ -69,8 +88,12 @@ class Cvter():
                         }
                     )
                     sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
-                    writer.write(sequence_example.SerializeToString())
-
+         
+        # write the number of iterations this record contains
+        with open(fn_record_to_count(self.file_name), 'w') as f:
+            f.write(str(num_iterations))
+            
+            
     @classmethod    
     def _int64_feature(cls, value):
         """Wrapper for inserting an int64 Feature into a SequenceExample proto,
@@ -119,8 +142,8 @@ if __name__ == '__main__':
     else:
         args.stop = int(args.stop)
 
-    file_name = args.records + '.tfrecords'
-    cvter = Cvter(file_name, args.data_dir)
+    cvter = Cvter(args.records, args.data_dir)
+    
     if args.mode == 'contiguous':
         cvter.convert_contiguous(args.nt)
     elif args.mode == 'skip':

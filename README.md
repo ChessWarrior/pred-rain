@@ -17,9 +17,10 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 ### Next Actions
 
 - [ ] Plot images as gif animation (reference: [Berkeley's vedio prediction repo](https://alexlee-gk.github.io/video_prediction/))
-- [ ] Calculate tfrecords length
+- [x] Calculate tfrecords length
 - [ ] Create modified model versions and label them appropriately
 - [ ] Calculate batch_size (bs) according to the number of model parameters and variable size.
+- [x] Refactor and encapsulate with Google Fire
 
 ### 数据
 
@@ -31,13 +32,14 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
     - [ ] Random Crop?
 - 实现提议的序列拆分方式
     - [x] ![fig1](https://github.com/ChessWarrior/pred-rain/raw/master/docs/pics/sequence.jpg)
+- [x] Automate stats calculation
 
 ### 模型
 
 - [x] Refactor PredNet into atomic RNN cells
 - [x] Inherit Keras RNN module
 - Integrate sequence data training technics
-    - [ ] Go bidirectional
+    - [ ] **Go bidirectional**
     - [ ] [QANet](https://arxiv.org/abs/1804.09541)
     - [ ] ["Google's Neural Machine Translation System"](https://arxiv.org/abs/1609.08144)
     - [ ] ["HAR Stacked residual bidir LSTMs"](https://arxiv.org/abs/1708.08989)

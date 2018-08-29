@@ -46,6 +46,7 @@ def calc_mean_std_subdir(subdir):
     mean, std = np.mean(ims), np.std(ims)
     return mean, std
 
+
 def calc_mean_std_par_dir(par_dir):
     """ Return the mean and std of png grayscale images in each subdirs.
     
@@ -62,6 +63,19 @@ def calc_mean_std_par_dir(par_dir):
     mean, std = np.mean(stds), np.mean(means)
     return mean, std
 
+
 def write_mean_std(fn, mean, std):
     with open(fn, 'w') as f:
         np.array([mean, std]).tofile(f, ',')
+        
+
+def avg_stats(stats):
+    """ Return the average of stats 
+    
+    Arguments:
+        stats: a list or np array of stats
+        
+    Return:
+        The average of stats
+    """
+    raise NotImplementedError

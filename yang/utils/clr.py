@@ -2,8 +2,8 @@ import os
 import numpy as np
 import warnings
 
-from keras.callbacks import Callback
-from keras import backend as K
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras import backend as K
 
 
 # Code is ported from https://github.com/fastai/fastai
@@ -247,7 +247,7 @@ class LRFinder(Callback):
         # References:
             - [A disciplined approach to neural network hyper-parameters: Part 1 -- learning rate, batch size, weight_decay, and weight decay](https://arxiv.org/abs/1803.09820)
         """
-        super(LRFinder, self).__init__()
+        super().__init__()
 
         if lr_scale not in ['exp', 'linear']:
             raise ValueError("`lr_scale` must be one of ['exp', 'linear']")

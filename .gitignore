@@ -6,6 +6,8 @@ fastai
 **/__pycache__
 .ipynb_checkpoints/
 .vscode/
-log
+log*
+*log
 
 *DS_Store
+nohup.out

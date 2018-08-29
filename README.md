@@ -66,7 +66,8 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
     - [x] Super Convergence
     - [x] Cosine Annealing with Warm Restarts
 - [x] Progressive resizing
-- [ ] Explain why the loss curve has short intervals?
+- [x] Explain why the loss curve has short intervals?
+    This is just a stupid learning rate error. Issue closed.
     - ![loss_interval.png](docs/pics/loss_interval.png)
 
 ### Docs

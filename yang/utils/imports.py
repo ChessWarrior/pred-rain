@@ -29,6 +29,7 @@ np.set_printoptions(precision=5, linewidth=110, suppress=True)
 
 from IPython.core.debugger import set_trace
 from .plots import *
+from .misc import *
 
 from ipykernel.kernelapp import IPKernelApp
 def in_notebook(): return IPKernelApp.initialized()
@@ -41,7 +42,7 @@ def in_ipynb():
         return False
 
 import tqdm as tq
-from tqdm import tqdm_notebook, tnrange
+from tqdm import tqdm, tqdm_notebook, tnrange
 
 def clear_tqdm():
     inst = getattr(tq.tqdm, '_instances', None)

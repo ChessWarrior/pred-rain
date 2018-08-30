@@ -1,25 +1,23 @@
-# this file contains script that convert the data file into a single tfrecords file (easier to be build into graph)
-
-import tensorflow as tf
 from utils.imports import *
-import argparse
-
-def fn_record_to_count(fn):
-    fn_count = Path(fn)
-    parent, name = fn_count.parent, fn_count.name
-    name = 'count_' + name + '.txt'
-    fn_count = str(parent/name)
-    return fn_count
 
 class Cvter():
-    def __init__(self, file_name, data_dir):
-        self.file_name, self.data_dir = file_name, data_dir
+    # TODO: merge convertion functions
+    def __init__(self, base_path, idx, PATH, is_test=False):
+        """
+        Arguments: 
+            base_path: the path to the parent folder of datasets. e.g. '../data/SRAD2018'
+            idx: the idx of datasets
+            PATH: working directory
+        """
+        self.base_path = base_path
+def fn_to_record(base_path, pred_mode, is_test, idx, nt):
 
     def convert_contiguous(self, nt):
         # write sequences of length nt to the tfrecords file
         # remainder frames are discarded
-        fn_records = self.file_name + '.tfrecords'
-        writer = tf.python_io.TFRecordWriter(fn_records)
+        self.fn_dirs = fn_to_record(Path(PATH)/'tfrecords', 'contigeous', )
+        fn_record = self.file_name + '.tfrecord'
+        writer = tf.python_io.TFRecordWriter(fn_record)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
         num_iterations = 0
         
@@ -48,15 +46,11 @@ class Cvter():
                     sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
                     writer.write(sequence_example.SerializeToString())
         
-        # write the number of iterations this record contains
-        with open(fn_record_to_count(self.file_name), 'w') as f:
-            f.write(str(num_iterations))
-
     def convert_skipping(self, stop, nt=None):
         # write skipping sequences of __stop__ stop to the tfrecords file
         # if nt is not None, skipping sequences are split into subsequences of length nt
         # Caveat: think about how to recover the order of prediction when the result is truncated.
-        fn_records = self.file_name + '.tfrecords'
+        fn_records = self.file_name + '.tfrecord'
         writer = tf.python_io.TFRecordWriter(fn_records)
         subdirs = sorted(list(Path(self.data_dir).iterdir()))
         num_iterations = 0
@@ -87,13 +81,10 @@ class Cvter():
                             'raw_png': self._bytes_feature_list(raw_png)
                         }
                     )
-                    sequence_example = tf.train.SequenceExample(context=context, feature_lists=feature_lists)
-         
-        # write the number of iterations this record contains
-        with open(fn_record_to_count(self.file_name), 'w') as f:
-            f.write(str(num_iterations))
-            
-            
+                    sequence_example = tf.train.SequenceExample(context=context, 
+                                                                feature_lists=feature_lists) 
+                    
+                    
     @classmethod    
     def _int64_feature(cls, value):
         """Wrapper for inserting an int64 Feature into a SequenceExample proto,

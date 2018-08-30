@@ -3,7 +3,7 @@ from utils.transforms import *
 from cvt2tfrecord import fn_record_to_count
 
 def input_fn(bs, sz, nt, aug_tfms, fns, is_val=False, val_split=0.1,
-             stats_fn='stat.csv', stats_sep=',', num_parallel_calls=8, 
+             stats_sep=',', num_parallel_calls=8, 
              shuffle=False, buffer_size=2, shuffle_buffer_size=24):
     """
     TODO: data interleave
@@ -40,6 +40,8 @@ def input_fn(bs, sz, nt, aug_tfms, fns, is_val=False, val_split=0.1,
         x = tf.expand_dims(x[:,:,:,0], axis=3)
         return x 
     
+    from predrain import Predrain
+    fn_stats = Predrain.fn_idx_to_stats(PATH)
     stats = np.fromfile(stats_fn, sep=stats_sep) # normalization stat
     tfms, _ = tfms_from_stats(stats, sz, aug_tfms=aug_tfms, crop_type=CropType.NO)
     

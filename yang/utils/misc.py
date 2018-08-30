@@ -1,6 +1,5 @@
 import tensorflow as tf
 from utils.imports import *
-from tensorflow.keras.preprocessing.image import Iterator
 
 
 def open_greyscale(fn):
@@ -64,9 +63,9 @@ def calc_mean_std_par_dir(par_dir):
     return mean, std
 
 
-def write_mean_std(fn, mean, std):
+def write_mean_std_count(fn, mean, std, count):
     with open(fn, 'w') as f:
-        np.array([mean, std]).tofile(f, ',')
+        np.array([mean, std, count]).tofile(f)
         
 
 def avg_stats(stats):
@@ -79,3 +78,54 @@ def avg_stats(stats):
         The average of stats
     """
     raise NotImplementedError
+    
+
+def fn_idx_to_dir_names(is_test, idx):
+    """ 
+    Returns:
+        a list of names of data folders e.g. ['SRAD2018_TRAIN_001']
+    """
+    train_mode = 'TEST' if is_test else 'TRAIN'
+    if isinstance(idx, int):
+        idx = [idx]
+    
+    # a hack
+    # I want to complain about the naming
+    if is_test:
+        fns = ['SRAD2018_Test_' + str(o) for o in idx]
+    else:
+        fns = ['SRAD2018_' + train_mode + '_' + str(o).zfill(3) for o in idx]
+    
+    return fns
+    
+    
+def fn_idx_to_stats(PATH, is_test, idx):
+    """
+    Arguments:
+        PATH: working path
+        is_test
+        idx  
+    """
+    dir_stats = PATH/'stats'
+    dir_names = fn_idx_to_dir_names(is_test, idx)
+    fns = [dir_stats/(o + '.npy') for o in dir_names]
+    return fns
+    
+    
+def fn_to_record(base_path, pred_mode, is_test, idx, nt):
+    """
+    Arguments:
+        base_path: the folder that contains the tfrecord files
+        pred_mode: either contiguous or skip
+        is_test
+        idx: 
+        nt: number of time steps
+    """
+    assert pred_mode in ['contiguous', 'skip'], 'pred_mode must be either contiguous or skip'
+    if isinstance(idx, int):
+        idx = [idx]
+    
+    train_mode = 'test' if is_test else 'train'
+    names = [train_mode + '_' + str(o) + '_' + pred_mode + '_' + str(nt) + '.tfrecord' for o in idx]
+    fns = [str(Path(base_path)/o) for o in names]
+    return fns

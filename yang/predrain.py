@@ -3,7 +3,7 @@ from utils.clr import LRFinder, OneCycleLR
 from tensorflow.keras.optimizers import SGD
 from utils.transforms import *
 
-MODEL_NAME = 'prednet'
+from models.model_factory import model_factory, ModelType
 
 # TODO: pylint it
 
@@ -93,55 +93,52 @@ class Predrain():
         return aug_tfms 
     
         
-    def generate_stats(self, par_par_dir, mode, idx, PATH=None):
+    def generate_stats(self, par_par_dir, is_test, idx, PATH=None):
         """ Generate the number of sequences, mean and std for each dataset and write to disk
         
         Arguments:
             par_par_dir: while par_dir stands for the path to a dataset, the par_par_dir is 
                 the path to the parent directory of the datasets
                 e.g. ../data/SRAD2018/
-            mode: either train or test
-            idx: supply a comma seperated list of datasets
-            PATH: the path to the data directory (e.g. ../data/)
+            is_test
+            idx: a comma seperated list of datasets
+            PATH: working directory that will contain the stats folder (e.g. ../data/)
         
         Returns:
             The stats
         """
         if PATH is None:        # if called with an instance
             PATH = self.PATH
-        assert_mode(mode)
             
         # parallelize?
-        par_dirs = [Path(par_par_dir)/o for o in fn_idx_to_dir_names(mode, idx)]
-        stats = [calc_mean_std_par_dir(str(par_dir)) for par_dir in par_dirs]
+        par_dirs = [Path(par_par_dir)/o for o in fn_idx_to_dir_names(is_test, idx)]
+        
+        stats = [calc_mean_std_par_dir(str(par_dir)) 
+                 for par_dir in tqdm_notebook(par_dirs)]
         means, stds = zip(*stats)
         
-        counts = [len(o.glob('RAD_*')) for o in par_dirs]
+        counts = [len(list(o.glob('RAD_*'))) for o in par_dirs]
         
-        fn_stats = fn_idx_to_stats(PATH, mode, par_dir_idx)
+        fn_stats = fn_idx_to_stats(PATH, is_test, idx)
+        
+        dir_stats = Path(PATH)/'stats'
+        if not dir_stats.exists():
+            dir_stats.mkdir()
         for stat in zip(fn_stats, means, stds, counts):
-            write_mean_std(*stat)
+            write_mean_std_count(*stat)
             
-    def get_stats(self, idx, mode, PATH=None):
-        if PATH is None:        # if called with an instance
-            PATH = self.PATH
-            
-        fn_stats = fn_idx_to_stats(PATH, mode, idx)
-        stats = [np.fromfile(o) for o in fn_stats]
-        return stats
-        
         
     import multiprocessing
     def get_data(self, base_path=Path('../data/tfrecords'), pred_mode='contiguous', 
                  idx_list=[1], val_split=0.1, num_parallel_calls=multiprocessing.cpu_count(),
                  buffer_size=1, shuffle_buffer_size=24, is_test=False):
-        train_mode = 'TEST' if is_test else 'TRAIN'
-        fn_records = ['train_' + str(idx) + '_' + str(pred_mode) + '_' + str(self.nt) + '.tfrecords' 
-                      for idx in idx_list]
-        # train_1_contiguous_10
-        fns_record = [str(Path(base_path)/o) for o in fn_records]
+        fns_records = fn_to_record(base_path, pred_mode, is_test, idx_list, self.nt)
         
-        stats = self.get_stats(idx_list, train_mode, self.PATH)
+        stats = get_stats(self.PATH, idx_list, is_test)
+        if len(idx_list) == 1:
+            mean, std, num_samples = stats[0]
+        else:
+            raise NotImplementedError('averate stats')
             
         if not is_test:
             trn_tensors = input_fn(fns, is_val=False, shuffle=True, val_split=val_split,
@@ -159,48 +156,21 @@ class Predrain():
         return trn_tensors, val_tensors
         
 
-    def get_model(self, optimizer=SGD(lr=0.002, momentum=0.9, nesterov=True)):
+    def get_model(self, model_type, **args):
         # TODO: 
         #   1. add experiments to argument list
         #   2. load models from files
         
-        from models.prednet_refactored import PredNetCell, PredNet
-        n_channels, im_height, im_width = (1, sz, sz)
-        input_shape = (im_height, im_width, n_channels)
-        stack_sizes = (n_channels, 48, 96, 192)
-        R_stack_sizes = stack_sizes
-        A_filt_sizes = (3, 3, 3)
-        Ahat_filt_sizes = (3, 3, 3, 3)
-        R_filt_sizes = (3, 3, 3, 3)
-
-        layer_loss_weights = np.array([1., 0., 0., 0.])  # weighting for each layer in final loss; 
-                                                        # "L_0" model:  [1, 0, 0, 0], "L_all": [1, 0.1, 0.1, 0.1]
-        layer_loss_weights = np.expand_dims(layer_loss_weights, 1)
-        time_loss_weights = 1./ (nt - 1) * np.ones((nt,1))  # equally weight all timesteps except the first
-        time_loss_weights[0] = 0
-
-        prednet_cell = PredNetCell(stack_sizes=stack_sizes,
-                    R_stack_sizes=R_stack_sizes,
-                    A_filt_sizes=A_filt_sizes,
-                    Ahat_filt_sizes=Ahat_filt_sizes,
-                    R_filt_sizes=R_filt_sizes)
-        prednet = PredNet(prednet_cell)
+        # This method helps filling up basic model information
+        args['num_spus'] = self.num_gpus
+        args['sz'] = self.sz
+        args['nt'] = self.nt
+        args['bs'] = self.bs
+        args['MODEL_VERSION'] = self.MODEL_VERSION
+        args['MODEL_PATH'] = self.MODEL_PATH
+        args['path_checkpoints'] = self.path_checkpoints
         
-        from tensorflow.keras.layers import TimeDistributed, Flatten, Dense
-        from tensorflow.keras.models import Model
-
-        inputs = tf.keras.Input(shape=(nt,) + input_shape)
-        errors = prednet(inputs)  # errors will be (batch_size, nt, nb_layers) 
-        errors_by_time = TimeDistributed(Dense(1, trainable=False), 
-                                         weights=[layer_loss_weights, np.zeros(1)], 
-                                         trainable=False)(errors)  # calculate weighted error by layer
-        errors_by_time = Flatten()(errors_by_time)  # will be (batch_size, nt)
-        final_errors = Dense(1, weights=[time_loss_weights, np.zeros(1)], trainable=False)(errors_by_time)  # weight errors by time
-        model = Model(inputs=inputs, outputs=final_errors)
-        if self.num_gpus > 1:
-            model = tf.keras.utils.multi_gpu_model(model, gpus=self.num_gpus)
-        model.compile(loss='mean_absolute_error', optimizer=optimizer) 
-        
+        model = model_factory(model_type, **args)
         return model
     
     
@@ -280,18 +250,21 @@ class Predrain():
         """
         fn_dirs = [Path(base_path)/o for o in fn_idx_to_dir_names(is_test, idx)]
         fn_records = fn_to_record(Path(PATH)/'tfrecords', pred_mode, is_test, idx, nt)
+        for fn_dir in fn_dirs:
+            assert Path(fn_dir).exists(), 'data not found'
+            
         if pred_mode == 'skip': 
             assert stop is not None
         else:
             assert nt is not None
             
-        for fn_dir, fn_record in tqdm(zip(fn_dirs, fn_records)):
+        for fn_dir, fn_record in tqdm_notebook(zip(fn_dirs, fn_records)):
             writer = tf.python_io.TFRecordWriter(fn_record)
             subdirs = sorted(Path(fn_dir).iterdir())
-            for subdir in tqdm(subdirs, desc=f'Processing subdirectory'):
+            for subdir in tqdm_notebook(subdirs, desc=f'Processing subdirectory'):
                 if subdir.is_dir(): # for subdirecories
                     time_stamp = subdir.name
-                    fns = sorted(subdir.glob('*.png'))
+                    fns = np.asarray(sorted(subdir.glob('*.png')))
 
                     if pred_mode == 'contiguous':
                         fns_split = [fns[o:o+nt] for o in range(0, len(fns) - nt, nt)]
@@ -300,14 +273,13 @@ class Predrain():
                     # the result is truncated.
                         split_idx = [range(o, len(fns) - stop, stop) for o in range(stop)]
                         if nt is not None:
-                            split_idx = [idx[o:o + nt] 
-                                         for idx in split_idx 
-                                         for o in range(0, len(idx) - nt, nt)]
+                            split_idx = [i[o:o + nt] 
+                                         for i in split_idx 
+                                         for o in range(0, len(i) - nt, nt)]
                         fns_split = [fns[idx] for idx in split_idx]
                     else:
                         raise NotImplementedError
                         
-                    #set_trace()
                     for fn_sequence in fns_split: # read images
                         raw_png = []
                         for fn in fn_sequence:
@@ -326,7 +298,9 @@ class Predrain():
                         sequence_example = tf.train.SequenceExample(context=context,
                                                                 feature_lists=feature_lists)
                         writer.write(sequence_example.SerializeToString())
-                        
+                  
+                
+# Helper functions
 def _int64_feature(value):
     """Wrapper for inserting an int64 Feature into a SequenceExample proto,
 e.g, An integer label.

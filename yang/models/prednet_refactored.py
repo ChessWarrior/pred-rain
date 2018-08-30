@@ -1,6 +1,6 @@
 import sys
-sys.path.append('../utils')
-from utils.imports import *
+sys.path.append('..')
+from yang.utils.imports import *
 
 from tensorflow.keras import backend as K
 from tensorflow.keras import activations

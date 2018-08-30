@@ -58,14 +58,19 @@ def calc_mean_std_par_dir(par_dir):
     """
 
     subdirs = [o for o in Path(par_dir).iterdir() if o.is_dir()]
-    means, stds = zip(*[calc_mean_std_subdir(o) for o in tqdm(subdirs)])
+    
+    with ProcessPoolExecutor() as e:
+        stats = e.map(calc_mean_std_subdir, subdirs)
+    means, stds = zip(*tqdm(stats))
+    
+    #means, stds = zip(*[calc_mean_std_subdir(o) for o in tqdm_notebook(subdirs)])
     mean, std = np.mean(stds), np.mean(means)
     return mean, std
 
 
-def write_mean_std_count(fn, mean, std, count):
+def write_mean_std_count(fn, mean, std, count, sep=','):
     with open(fn, 'w') as f:
-        np.array([mean, std, count]).tofile(f)
+        np.array([mean, std, count]).tofile(f, sep=sep)
         
 
 def avg_stats(stats):
@@ -106,7 +111,7 @@ def fn_idx_to_stats(PATH, is_test, idx):
         is_test
         idx  
     """
-    dir_stats = PATH/'stats'
+    dir_stats = Path(PATH)/'stats'
     dir_names = fn_idx_to_dir_names(is_test, idx)
     fns = [dir_stats/(o + '.npy') for o in dir_names]
     return fns
@@ -129,3 +134,8 @@ def fn_to_record(base_path, pred_mode, is_test, idx, nt):
     names = [train_mode + '_' + str(o) + '_' + pred_mode + '_' + str(nt) + '.tfrecord' for o in idx]
     fns = [str(Path(base_path)/o) for o in names]
     return fns
+
+def get_stats(PATH, idx, is_test):
+    fn_stats = fn_idx_to_stats(PATH, is_test, idx)
+    stats = [np.fromfile(o) for o in fn_stats]
+    return stats

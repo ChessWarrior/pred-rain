@@ -18,8 +18,8 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 
 - [ ] Plot images as gif animation (reference: [Berkeley's vedio prediction repo](https://alexlee-gk.github.io/video_prediction/))
 - [x] Calculate tfrecords length
-- [ ] Create modified model versions and label them appropriately
-- [ ] Calculate batch_size (bs) according to the number of model parameters and variable size.
+- [x] Create modified model versions and label them appropriately
+- [x] Calculate batch_size (bs) according to the number of model parameters and variable size. (rejected)
 - [x] Refactor and encapsulate with Google Fire
 
 ### 数据
@@ -39,7 +39,7 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
 - [x] Refactor PredNet into atomic RNN cells
 - [x] Inherit Keras RNN module
 - Integrate sequence data training technics
-    - [ ] **Go bidirectional**
+    - [ ] Go bidirectional
     - [ ] [QANet](https://arxiv.org/abs/1804.09541)
     - [ ] ["Google's Neural Machine Translation System"](https://arxiv.org/abs/1609.08144)
     - [ ] ["HAR Stacked residual bidir LSTMs"](https://arxiv.org/abs/1708.08989)
@@ -47,10 +47,10 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
     - Needs a calibrated dataset to verify proposals.
     - [ ] Dilation: Deeplab
     - [ ] [Multiscale encoders](http://openaccess.thecvf.com/content_cvpr_2018_workshops/papers/w4/Zhou_D-LinkNet_LinkNet_With_CVPR_2018_paper.pdf)
-    - [ ] Use strides for Conv2d to replace Maxpool
-    - [ ] Use Leaky Relu
+    - [x] Use strides for Conv2d to replace Maxpool (rejected)
+    - [x] Use Leaky Relu
     - [ ] Compare the activation functions used in PredNet vs. GAN
-    - [ ] PredNet 3 layers vs. 5 layers
+    - [x] PredNet 3 layers vs. 5 layers (rejected)
     - [ ] Skip connections
         - [ ] Lower layers use the concatenated representations from upper layers
         - [ ] Skip layers: ["HAR Stacked redisual bidir LSTMs"](https://arxiv.org/abs/1708.08989)
@@ -68,9 +68,6 @@ A.I. marvels will be given big data of heavy rain suspects in form of historical
     - [x] Super Convergence
     - [x] Cosine Annealing with Warm Restarts
 - [x] Progressive resizing
-- [x] Explain why the loss curve has short intervals?
-    This is just a stupid learning rate error. Issue closed.
-    - ![loss_interval.png](docs/pics/loss_interval.png)
 
 ### Docs
 Check grammar

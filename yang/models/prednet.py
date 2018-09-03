@@ -148,8 +148,8 @@ class PredNet(RNN):
         states_to_pass = ['r', 'c', 'e']
         nlayers_to_pass = {u: self.nb_layers for u in states_to_pass}
         if self.extrap_start_time is not None:
-           states_to_pass.append('ahat')  # pass prediction in states so can use as actual for t+1 when extrapolating
-           nlayers_to_pass['ahat'] = 1
+            states_to_pass.append('ahat')  # pass prediction in states so can use as actual for t+1 when extrapolating
+            nlayers_to_pass['ahat'] = 1
         for u in states_to_pass:
             for l in range(nlayers_to_pass[u]):
                 ds_factor = 2 ** l

@@ -113,7 +113,7 @@ def fn_idx_to_stats(PATH, is_test, idx):
     """
     dir_stats = Path(PATH)/'stats'
     dir_names = fn_idx_to_dir_names(is_test, idx)
-    fns = [dir_stats/(o + '.npy') for o in dir_names]
+    fns = [str(dir_stats/(o + '.npy')) for o in dir_names]
     return fns
     
     
@@ -135,7 +135,28 @@ def fn_to_record(base_path, pred_mode, is_test, idx, nt):
     fns = [str(Path(base_path)/o) for o in names]
     return fns
 
-def get_stats(PATH, idx, is_test):
+def get_stats(PATH, idx, is_test, sep=','):
     fn_stats = fn_idx_to_stats(PATH, is_test, idx)
-    stats = [np.fromfile(o) for o in fn_stats]
+    stats = [np.fromfile(o, sep=sep) for o in fn_stats]
     return stats
+
+# hard coding stats
+def get_num_samples(num_records, pred_mode, is_test):
+    if pred_mode == 'skip':
+        num_samples = 5000 * 5
+    elif pred_mode == 'contiguous':
+        if is_test:
+            num_samples = 5000 * 3
+        else:
+            num_samples = 5000 * 6
+    else:
+        raise ValueError
+        
+    return num_samples * num_records
+            
+    
+def str_version(mt, pred_mode, sz, comment=''):
+    if comment:
+        comment = '_' + comment
+    MODEL_VERSION = mt.name + '_' + str(sz) + '_' + pred_mode + comment
+    return MODEL_VERSION

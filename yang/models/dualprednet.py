@@ -2,14 +2,7 @@ import sys
 sys.path.append('..')
 from yang.utils.imports import *
 
-from tensorflow.keras import backend as K
-from tensorflow.keras import activations
-from tensorflow.keras.layers import RNN
-from tensorflow.keras.layers import Conv2D, UpSampling2D, MaxPooling2D
-from tensorflow.keras.layers import Layer, InputSpec
-
-
-class PredNetCell(Layer):
+class DualPredNetCellV1(Layer):
     '''PredNet architecture - Lotter 2016.
         Stacked convolutional LSTM inspired by predictive coding principles.
 
@@ -94,7 +87,6 @@ class PredNetCell(Layer):
         # activations
         def get_activations(str_activation):
             if str_activation == 'LeakyReLU':
-                from tensorflow.keras.layers import LeakyReLU
                 return LeakyReLU()
             else:
                 return activations.get(str_activation)
@@ -144,8 +136,8 @@ class PredNetCell(Layer):
         states_to_pass = ['r', 'c', 'e']
         nlayers_to_pass = {u: self.nb_layers for u in states_to_pass}
         if self.extrap_start_time is not None:
-           states_to_pass.append('ahat')  # pass prediction in states so can use as actual for t+1 when extrapolating
-           nlayers_to_pass['ahat'] = 1
+            states_to_pass.append('ahat')  # pass prediction in states so can use as actual for t+1 when extrapolating
+            nlayers_to_pass['ahat'] = 1
         for u in states_to_pass:
             for l in range(nlayers_to_pass[u]):
                 ds_factor = 2 ** l
@@ -182,16 +174,16 @@ class PredNetCell(Layer):
             out_shape = (np.prod(input_shape[2:]) + self.nb_layers,)
         else:
             # This branch is currently dead
-            
-            stack_str = 'R_stack_sizes' if self.output_layer_type == 'R' else 'stack_sizes'
-            stack_mult = 2 if self.output_layer_type == 'E' else 1
-            out_stack_size = stack_mult * getattr(self, stack_str)[self.output_layer_num]
-            out_nb_row = input_shape[self.row_axis] / 2**self.output_layer_num
-            out_nb_col = input_shape[self.column_axis] / 2**self.output_layer_num
-            if self.data_format == 'channels_first':
-                out_shape = (out_stack_size, out_nb_row, out_nb_col)
-            else:
-                out_shape = (out_nb_row, out_nb_col, out_stack_size)
+            raise ValueError('output_mode doesn\'t match')
+            #stack_str = 'R_stack_sizes' if self.output_layer_type == 'R' else 'stack_sizes'
+            #stack_mult = 2 if self.output_layer_type == 'E' else 1
+            #out_stack_size = stack_mult * getattr(self, stack_str)[self.output_layer_num]
+            #out_nb_row = input_shape[self.row_axis] / 2**self.output_layer_num
+            #out_nb_col = input_shape[self.column_axis] / 2**self.output_layer_num
+            #if self.data_format == 'channels_first':
+            #    out_shape = (out_stack_size, out_nb_row, out_nb_col)
+            #else:
+            #    out_shape = (out_nb_row, out_nb_col, out_stack_size)
                 
         if self.return_sequences:
             return (input_shape[0], input_shape[1]) + out_shape
@@ -206,10 +198,18 @@ class PredNetCell(Layer):
         for l in range(self.nb_layers):
             for c in ['i', 'f', 'c', 'o']:
                 act = self.LSTM_activation if c == 'c' else self.LSTM_inner_activation
-                self.conv_layers[c].append(Conv2D(self.R_stack_sizes[l], self.R_filt_sizes[l], padding='same', activation=act, data_format=self.data_format))
+                conv2d = Sequential([
+                    Conv2D(self.R_stack_sizes[l], 3, padding='same', activation=act, data_format=self.data_format),
+                    Conv2D(self.R_stack_sizes[l], 3, padding='same', activation=act, data_format=self.data_format)
+                ])
+                self.conv_layers[c].append(conv2d)
 
             act = 'relu' if l == 0 else self.A_activation
-            self.conv_layers['ahat'].append(Conv2D(self.stack_sizes[l], self.Ahat_filt_sizes[l], padding='same', activation=act, data_format=self.data_format))
+            conv2d = Sequential([
+                Conv2D(self.stack_sizes[l], 3, padding='same', activation=act, data_format=self.data_format),
+                Conv2D(self.stack_sizes[l], 3, padding='same', activation=act, data_format=self.data_format),
+            ])
+            self.conv_layers['ahat'].append(conv2d)
 
             if l < self.nb_layers - 1:
                 self.conv_layers['a'].append(Conv2D(self.stack_sizes[l+1], self.A_filt_sizes[l], padding='same', activation=self.A_activation, data_format=self.data_format))
@@ -288,15 +288,15 @@ class PredNetCell(Layer):
 
             e.append(K.concatenate((e_up, e_down), axis=self.channel_axis))
 
-            if self.output_layer_num == l:
-                if self.output_layer_type == 'A':
-                    output = a
-                elif self.output_layer_type == 'Ahat':
-                    output = ahat
-                elif self.output_layer_type == 'R':
-                    output = r[l]
-                elif self.output_layer_type == 'E':
-                    output = e[l]
+            #if self.output_layer_num == l:
+            #    if self.output_layer_type == 'A':
+            #        output = a
+            #    elif self.output_layer_type == 'Ahat':
+            #        output = ahat
+            #    elif self.output_layer_type == 'R':
+            #        output = r[l]
+            #    elif self.output_layer_type == 'E':
+            #        output = e[l]
 
             if l < self.nb_layers - 1:
                 a = self.conv_layers['a'][l].call(e[l])
@@ -337,53 +337,3 @@ class PredNetCell(Layer):
         base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-
-class PredNet(RNN):
-    def __init__(self,
-                cell,
-                return_sequences=True,
-                return_state=False,
-                go_backwards=False,
-                stateful=False,
-                unroll=False,
-                **kwargs):
-        
-        super().__init__(cell,
-                        return_sequences=return_sequences,
-                        return_state=return_state,
-                        go_backwards=go_backwards,
-                        stateful=stateful,
-                        unroll=unroll,)
-                        # **kwargs)
-
-        self.cell = cell
-        self.input_spec = [InputSpec(ndim=5)]
-
-    def get_initial_state(self, x):
-        return self.cell.get_initial_state(x)
-
-    def compute_output_shape(self, input_shape):
-        return self.cell.compute_output_shape(input_shape)  
-
-    def get_config(self):
-        config = {'stack_sizes': self.cell.stack_sizes,
-                    'R_stack_sizes': self.cell.R_stack_sizes,
-                    'A_filt_sizes': self.cell.A_filt_sizes,
-                    'Ahat_filt_sizes': self.cell.Ahat_filt_sizes,
-                    'R_filt_sizes': self.cell.R_filt_sizes,
-                    'pixel_max': self.cell.pixel_max,
-                    'error_activation': self.cell.error_activation.__name__,
-                    'A_activation': self.cell.A_activation.__name__,
-                    'LSTM_activation': self.cell.LSTM_activation.__name__,
-                    'LSTM_inner_activation':  self.cell.LSTM_inner_activation.__name__,
-                    'data_format': self.cell.data_format,
-                    'extrap_start_time': self.cell.extrap_start_time,
-                    'output_mode': self.cell.output_mode}
-        base_config = super().get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
-    # TODO: define properties to return cell's properties
-
-    def reset_states(self, states=None):
-        # raise an error to avoid using a fake state_size defined in cell
-        raise NotImplementedError

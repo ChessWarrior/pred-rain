@@ -1,4 +1,10 @@
 import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras import activations, Sequential
+from tensorflow.keras.layers import RNN
+from tensorflow.keras.layers import Conv2D, UpSampling2D, MaxPooling2D, LeakyReLU
+from tensorflow.keras.layers import Layer, InputSpec
+
 
 from IPython.lib.deepreload import reload as dreload
 import PIL, os, numpy as np, math, collections, threading, json, bcolz, random, scipy, cv2
@@ -63,5 +69,6 @@ else:
     tqdm_notebook=tqdm
 
 tqdm_notebook = tqdm
+from utils.clr import *
 from .plots import *
 from .misc import *

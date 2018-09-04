@@ -3,12 +3,14 @@ from enum import IntEnum
 
 def scale_min(im, targ, interpolation=cv2.INTER_AREA):
     """ Scale the image so that the smallest axis is of size targ.
+    Supports np array and tf tensor
 
     Arguments:
         im (array): image
         targ (int): target size
     """
-    shape = im.shape.as_list()
+    is_np = isinstance(im, np.ndarray) 
+    shape = im.shape if is_np else im.shape.as_list()
     if len(shape) == 4:
         shape = shape[1:]
     elif len(shape) != 3:
@@ -16,7 +18,7 @@ def scale_min(im, targ, interpolation=cv2.INTER_AREA):
     r,c,*_ = shape
     ratio = targ/min(r,c)
     sz = (scale_to(c, ratio, targ), scale_to(r, ratio, targ))
-    return tf.image.resize_images(im, sz)
+    return cv2.resize(im, sz) if is_np else tf.image.resize_images(im, sz)
 
 def zoom_cv(x,z):
     """ Zoom the center of image x by a factor of z+1 while retaining the original image size and proportion. """

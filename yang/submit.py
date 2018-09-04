@@ -1,6 +1,5 @@
 from predrain import *
 
-P = None
 
 class PredictMode(IntEnum):
     Skip1 = 1
@@ -8,10 +7,12 @@ class PredictMode(IntEnum):
     Ensumble = 3
 
 class Submission:
+    self.P = None
+    
     
     def predict(sz, nt, bs, num_gpus, gpu_start, mt_idx, pred_mode, data_idx, epochs, max_lr, predict_mode
           load_mt_idx, load_sz, load_idx, PATH='../data', test_idx=1, comment=''):
-        global P
+
         if isinstance(test_idx, int):
             test_idx = [test_idx]
         if len(test_idx) > 1:
@@ -19,17 +20,17 @@ class Submission:
             
         PATH = Path(PATH)
             
-        P = Predrain()
+        self.P = Predrain()
 
         mt = ModelType(mt_idx)
-        P.set_config(sz, nt, bs, mt, num_gpus, gpu_start, pred_mode, allow_growth=False)
+        self.P.set_config(sz, nt, bs, mt, num_gpus, gpu_start, pred_mode, allow_growth=False)
         # use manual prediction
         #P.get_data(pred_mode=pred_mode, idx=data_idx)
 
-        P.get_model(mt, output_mode='error')
+        self.P.get_model(mt, output_mode='error')
 
         load_mt = ModelType(load_mt_idx)
-        P.load(load_mt, load_sz, load_idx)
+        self.P.load(load_mt, load_sz, load_idx)
 
         predict_mode = PredictMode(predict_mode)
         
@@ -45,11 +46,8 @@ class Submission:
         ### Write to disk
         
         
-        
-        
-        
     def do_predict(self, predict_mode):
-        return 
+        pass
     
     
 if __name__ == '__main__':

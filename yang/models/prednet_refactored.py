@@ -245,6 +245,7 @@ class PredNetCell(Layer):
         self.built = True
 
     def call(self, a, states, training=None):
+        set_trace()
         r_tm1 = states[:self.nb_layers]
         c_tm1 = states[self.nb_layers:2*self.nb_layers]
         e_tm1 = states[2*self.nb_layers:3*self.nb_layers]

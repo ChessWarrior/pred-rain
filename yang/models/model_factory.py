@@ -7,6 +7,7 @@ from enum import IntEnum
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import SGD, Adam
 
+# TODO: use dictionary to get model
 class ModelType(IntEnum):
     PredNetOriginal = 1
     PredNetLeakyRelu = 2

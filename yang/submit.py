@@ -1,5 +1,11 @@
+import os
+
+import cv2 
+import numpy as np 
+
 from predrain import *
 
+P = None 
 
 class PredictMode(IntEnum):
     Skip1 = 1
@@ -7,10 +13,8 @@ class PredictMode(IntEnum):
     Ensumble = 3
 
 class Submission:
-    self.P = None
     
-    
-    def predict(sz, nt, bs, num_gpus, gpu_start, mt_idx, pred_mode,
+    def predict(self, sz, nt, bs, num_gpus, gpu_start, mt_idx, pred_mode,
           load_mt_idx, load_sz, load_idx, PATH='../data', test_idx=1, comment=''):
         """ A complete prediction method from commandline.
         Arguments:
@@ -27,7 +31,7 @@ class Submission:
             test_idx: index of the test dataset(s) to predict
             comment: weights file comment
         """
-
+        global P
         if isinstance(test_idx, int):
             test_idx = [test_idx]
         if len(test_idx) > 1:
@@ -35,35 +39,63 @@ class Submission:
             
         PATH = Path(PATH)
             
-        self.P = Predrain()
+        P = Predrain()
 
         mt = ModelType(mt_idx)
-        self.P.set_config(sz, nt, bs, mt, num_gpus, gpu_start, pred_mode, allow_growth=False)
+        P.set_config(sz, nt, bs, mt, num_gpus, gpu_start, pred_mode, allow_growth=False)
         # use manual prediction
         #P.get_data(pred_mode=pred_mode, idx=data_idx)
 
-        self.P.get_model(mt, output_mode='error')
+        P.get_model(mt, output_mode='prediciton')
 
         load_mt = ModelType(load_mt_idx)
-        self.P.load(load_mt, load_sz, load_idx)
+        P.load(load_mt, load_sz, load_idx)
 
         predict_mode = PredictMode(predict_mode)
         
         #######TODO: zyc
-        data_path = PATH/'SRAD2018'/(fn_idx_to_dir_names(True, data_idx)[0])
+        data_path = PATH/'SRAD2018'/(fn_idx_to_dir_names(True, test_idx)[0])
         save_path = PATH/str_version(mt, pred_mode, sz, comment)
         ### Load data
         dirs = data_path.iterdir()
         ### Do predict
         for sub_dir in dirs:
             if sub_dir.is_dir:
-                y = do_predict(sub_dir, predict_mode)
-        ### Write to disk
+                pred_imgs = do_predict(sub_dir, predict_mode)
+
+            # Save
+            for i, img in enumerate(pred_imgs):
+                cv2.imwrite(sub_dir + "pred_" + i*5 + ".png", img)
         
+    def do_predict(self, sub_dir, predict_mode):
+        global P 
+        imgs = os.listdir(sub_dir)
         
-    def do_predict(self, predict_mode):
-        pass
-    
+        assert(len(imgs) == 31)
+
+        input_imgs = []
+        pred_imgs = []
+
+        if predict_mode == PredictMode.Skip1:
+            # Inputs: 0 5 10 15 20 25 30
+            # Outputs: 5 10 15 20 25 30
+            for i in range(0, len(imgs), 5):
+                img = cv2.imread(imgs[i])
+                img = P.tfms(img)
+                input_imgs.append(img)
+            
+            input_imgs = np.array(input_imgs)
+            pred_imgs = P.predict(input_imgs)
+        else:
+            raise NotImplementedError("not finished Contiguous")
+
+        
+
+        return pred_imgs
+        
+
+            
+        
     
 if __name__ == '__main__':
     fire.Fire(Submission)

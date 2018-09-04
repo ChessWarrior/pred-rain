@@ -89,6 +89,9 @@ class Predrain():
         x, y = self.trn_tensors
         self.model.fit(x, y, epochs=epochs, validation_data=self.val_tensors, callbacks=callbacks, 
                   steps_per_epoch=trn_steps, validation_steps=val_steps, **args)
+    
+    def predict(self):
+        assert self.has_model
         
         
     def lr_find(self, lr_pct=0.05):

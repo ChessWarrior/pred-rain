@@ -5,12 +5,14 @@ from utils.transforms import *
 
 from models.model_factory import model_factory, ModelType
 
+import numpy as np 
 # TODO: pylint it
 
 class Predrain():
     
     def __init__(self):
         self.initialized = False
+        
     
     def set_config(self, sz, nt, bs, model_type, num_gpus, gpu_start, pred_mode, comment='', PATH=None, allow_growth=False):
         if isinstance(model_type, int):
@@ -90,9 +92,23 @@ class Predrain():
         self.model.fit(x, y, epochs=epochs, validation_data=self.val_tensors, callbacks=callbacks, 
                   steps_per_epoch=trn_steps, validation_steps=val_steps, **args)
     
-    def predict(self):
+    def predict(self, input_imgs):
         assert self.has_model
+
+        self.model.reset_state()
         
+        for img in input_imgs:
+            # [1 256 256 1] -> [1 1 256 256 1]
+            img = img[np.newaxis, :]
+            output = self.model.predict(img)
+        # last output 
+        pred_imgs = [output]
+        # generate last 5
+        for i in range(5):
+            output = self.model.predict(pred_imgs[i])
+            pred_imgs.append(output)
+
+        return pred_imgs
         
     def lr_find(self, lr_pct=0.05):
         assert self.has_model and self.has_data

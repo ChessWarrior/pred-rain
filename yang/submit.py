@@ -44,12 +44,11 @@ class Submission:
         mt = ModelType(mt_idx)
         P.set_config(sz, nt, bs, mt, num_gpus, gpu_start, pred_mode, allow_growth=False)
         # use manual prediction
-        #P.get_data(pred_mode=pred_mode, idx=data_idx)
+        P.get_data(pred_mode=pred_mode, idx=data_idx)
 
         P.get_model(mt, output_mode='prediciton')
 
-        load_mt = ModelType(load_mt_idx)
-        P.load(load_mt, load_sz, load_idx)
+        P.model.load_weights('../data/models/checkpoints/weights.PredNetLeakyRelu_256_skip_nt5_from_scratch.02.h5', by_name=True)
 
         predict_mode = PredictMode(predict_mode)
         
@@ -81,15 +80,16 @@ class Submission:
             # Outputs: 5 10 15 20 25 30
             for i in range(0, len(imgs), 5):
                 img = cv2.imread(imgs[i])
+                img = img[np.newaxis, :]
                 img = P.tfms(img)
                 input_imgs.append(img)
             
             input_imgs = np.array(input_imgs)
             pred_imgs = P.predict(input_imgs)
+            for i in range(len(pred_imgs)):
+                pred_imgs[i] = cv2.resize(512, 512)
         else:
             raise NotImplementedError("not finished Contiguous")
-
-        
 
         return pred_imgs
         

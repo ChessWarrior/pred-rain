@@ -10,8 +10,23 @@ class Submission:
     self.P = None
     
     
-    def predict(sz, nt, bs, num_gpus, gpu_start, mt_idx, pred_mode, data_idx, epochs, max_lr, predict_mode
+    def predict(sz, nt, bs, num_gpus, gpu_start, mt_idx, pred_mode,
           load_mt_idx, load_sz, load_idx, PATH='../data', test_idx=1, comment=''):
+        """ A complete prediction method from commandline.
+        Arguments:
+            sz: the size of model input (input images are resized to sz automatically)
+            nt: number of timesteps. (possibly not used)
+            bs: prediction batch size
+            num_gpus: number of gpus to use
+            gpu_start: the index of the first gpu (sorted by PCI_BUS_ID)
+            mt_idx: ModelType index. See model factory for detail
+            pred_mode: either 'contiguous' or 'skip'
+            load_mt_idx: ModelType index of the weights file. See model factory for detail
+            load_sz: the size of model input the weights are trained on
+            load_idx: weights version index
+            test_idx: index of the test dataset(s) to predict
+            comment: weights file comment
+        """
 
         if isinstance(test_idx, int):
             test_idx = [test_idx]

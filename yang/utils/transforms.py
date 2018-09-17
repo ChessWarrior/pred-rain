@@ -9,11 +9,15 @@ def scale_min(im, targ, interpolation=cv2.INTER_AREA):
         im (array): image
         targ (int): target size
     """
-    is_np = isinstance(im, np.ndarray) 
-    shape = im.shape if is_np else im.shape.as_list()
-    if len(shape) == 4:
-        shape = shape[1:]
-    elif len(shape) != 3:
+    is_np = isinstance(im, (np.ndarray, list)) 
+    if is_np:
+        im = np.asarray(im)
+        shape = im.shape
+    else:
+        shape = im.shape.as_list()
+        if len(shape) == 4:
+            shape = shape[1:]
+    if len(shape) != 3:
         raise TypeError
     r,c,*_ = shape
     ratio = targ/min(r,c)

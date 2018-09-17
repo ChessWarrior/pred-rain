@@ -72,9 +72,10 @@ def model_factory(model_type, **args):
                                    R_filt_sizes=R_filt_sizes, 
                                    output_mode=args['output_mode'],
                                    A_activation='LeakyReLU')
-        prednet = PredNet(prednet_cell)
+        prednet = PredNet(prednet_cell, stateful=args['stateful'])
         
-        inputs = tf.keras.Input(shape=(args['nt'],) + input_shape)
+        nt = 1 if args['output_mode'] == 'prediction' else args['nt']
+        inputs = tf.keras.Input(batch_shape=(args['bs'], nt) + input_shape)
         if args['output_mode'] == 'prediction':
             prediction = prednet(inputs)
             model = Model(inputs=inputs, outputs=prediction)

@@ -130,7 +130,8 @@ class PredNetCell(Layer):
     
     # TODO: understand this method
     def get_initial_state(self, x):
-        input_shape = self.input_spec[0].shape
+        #input_shape = self.input_spec[0].shape
+        input_shape = x.shape.as_list()
         init_nb_row = input_shape[self.row_axis]
         init_nb_col = input_shape[self.column_axis]
 
@@ -199,7 +200,6 @@ class PredNetCell(Layer):
             return (input_shape[0],) + out_shape
     
     def build(self, input_shape):
-        # set_trace()
         self.input_spec = [InputSpec(shape=input_shape)]
         self.conv_layers = {c: [] for c in ['i', 'f', 'c', 'o', 'a', 'ahat']}
 
@@ -245,7 +245,6 @@ class PredNetCell(Layer):
         self.built = True
 
     def call(self, a, states, training=None):
-        set_trace()
         r_tm1 = states[:self.nb_layers]
         c_tm1 = states[self.nb_layers:2*self.nb_layers]
         e_tm1 = states[2*self.nb_layers:3*self.nb_layers]
@@ -287,17 +286,15 @@ class PredNetCell(Layer):
             e_up = self.error_activation(ahat - a)
             e_down = self.error_activation(a - ahat)
 
-            e.append(K.concatenate((e_up, e_down), axis=self.channel_axis))
+            
+            # TODO: focal loss
+            t = K.concatenate((e_up, e_down), axis=self.channel_axis)
+            t = K.BCE(t)
+            t = ()*t
+            e.append(t)
+            
+            
 
-            if self.output_layer_num == l:
-                if self.output_layer_type == 'A':
-                    output = a
-                elif self.output_layer_type == 'Ahat':
-                    output = ahat
-                elif self.output_layer_type == 'R':
-                    output = r[l]
-                elif self.output_layer_type == 'E':
-                    output = e[l]
 
             if l < self.nb_layers - 1:
                 a = self.conv_layers['a'][l].call(e[l])
@@ -382,9 +379,12 @@ class PredNet(RNN):
                     'output_mode': self.cell.output_mode}
         base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
+    
+    def build(self, input_shape):
+        self.cell.state_size = [o.shape[1:] for o in self.get_initial_state(K.zeros(input_shape))]
+        super().build(input_shape)
 
     # TODO: define properties to return cell's properties
-
-    def reset_states(self, states=None):
-        # raise an error to avoid using a fake state_size defined in cell
-        raise NotImplementedError
+   # def reset_states(self, states=None):
+   #     # raise an error to avoid using a fake state_size defined in cell
+   #     raise NotImplementedError

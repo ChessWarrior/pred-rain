@@ -5,14 +5,17 @@ from utils.transforms import *
 
 from models.model_factory import model_factory, ModelType
 
-import numpy as np 
 # TODO: pylint it
 
 class Predrain():
     
     def __init__(self):
         self.initialized = False
-        
+        self.has_data, self.has_model = False, False
+        self.has_tfms = False
+        self.model = None
+        self.trn_tensors, self.val_tensors, self.num_samples, self.val_num_samples = None, None, None, None
+        self.stats = 0.22, 0.90
     
     def set_config(self, sz, nt, bs, model_type, num_gpus, gpu_start, pred_mode, comment='', PATH=None, allow_growth=False):
         if isinstance(model_type, int):
@@ -27,7 +30,12 @@ class Predrain():
         os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'     # so the IDs match nvidia-smi
         os.environ['CUDA_VISIBLE_DEVICES'] = gpu_range_str # "0, 1" for multiple
 
-        self.MODEL_VERSION = str_version(model_type, pred_mode, sz, comment)
+        self.MODEL_VERSION = str_version(model_type, pred_mode.name, sz, comment)
+        if pred_mode.name.lower().startswith('skip'):
+            self._pred_mode = 'skip'
+        elif pred_mode.name.lower().startswith('contiguous'):
+            self._pred_mode = 'contiguous'
+            
         self.MODEL_PATH = self.PATH/'models'
         
         self.path_checkpoints = self.MODEL_PATH/'checkpoints'
@@ -45,14 +53,6 @@ class Predrain():
             sess = tf.Session(config=config)
             set_session(sess)  # set this TensorFlow session as the default session for Keras
         
-        #self.initialized = True
-        self.has_data, self.has_model = False, False
-        self.model = None
-        self.trn_tensors, self.val_tensors, self.num_samples, self.val_num_samples = None, None, None, None
-        
-        self.initialized = True
-        
-    
     def train(self, epochs=1, max_lr=1e-3 / 2):
         if not self.has_model:
             model = self.get_model(ModelType.PredNetOriginal)
@@ -126,29 +126,34 @@ class Predrain():
         
         return lrfinder
         
+    def get_tfms(self, aug_tfms=[], crop_type=CropType.NO):
+        tfms, _ = tfms_from_stats(self.stats, self.sz, aug_tfms=aug_tfms, 
+                                  crop_type=CropType.NO)
+        self.tfms = tfms
+        self.denorm = Denormalize(*self.stats)
+        self.has_tfms = True
+        
         
     import multiprocessing
-    def get_data(self, base_path=Path('../data/tfrecords'), pred_mode='contiguous', 
+    def get_data(self, base_path=Path('../data/tfrecords'), pred_mode=None, 
                  idx=[1], val_split=0.1, num_parallel_calls=multiprocessing.cpu_count(),
-                 buffer_size=3, shuffle_buffer_size=24, is_test=False, aug_tfms=[]):
+                 buffer_size=3, shuffle_buffer_size=24, is_test=False, aug_tfms=[], nt=None):
         if isinstance(idx, int):
             idx = [idx]
-        fns_records = fn_to_record(base_path, pred_mode, is_test, idx, self.nt)
+        pred_mode = pred_mode or self._pred_mode
+            
+        nt = nt or self.nt
+        fns_records = fn_to_record(base_path, pred_mode, is_test, idx, nt)
         
         num_samples = get_num_samples(len(idx), pred_mode, is_test)
         self.val_num_samples = int(num_samples * val_split)
         self.num_samples = int(num_samples - self.val_num_samples)
             
-        mean, std = 0.22, 0.90
-        # provides normalization and resizing (and optionally croping)
-        tfms, _ = tfms_from_stats((mean, std), self.sz, aug_tfms=aug_tfms, 
-                                  crop_type=CropType.NO)
-        self.tfms = tfms
-        self.denorm = Denormalize(mean, std)
+        self.get_tfms(aug_tfms)
        
         if not is_test:
             self.trn_tensors = self._input_fn(fns_records, is_val=False, shuffle=True,
-                                            val_split=val_split, tfms=tfms,
+                                            val_split=val_split, tfms=self.tfms,
                                             num_parallel_calls=num_parallel_calls,
                                             buffer_size=buffer_size,
                                             shuffle_buffer_size=shuffle_buffer_size)
@@ -158,7 +163,7 @@ class Predrain():
         if is_test:
             val_split = 1
         self.val_tensors = self._input_fn(fns_records, is_val=True, shuffle=False,
-                                        val_split=val_split, tfms=tfms,
+                                        val_split=val_split, tfms=self.tfms,
                                         num_parallel_calls=num_parallel_calls, 
                                         buffer_size=buffer_size,
                                         shuffle_buffer_size=shuffle_buffer_size)
@@ -170,7 +175,6 @@ class Predrain():
     def get_model(self, model_type, **args):
         # TODO: 
         #   1. add experiments to argument list
-        #   2. load models from files
         
         # This method helps filling up basic model information
         args['num_gpus'] = self.num_gpus
@@ -186,18 +190,20 @@ class Predrain():
         return self.model
     
     
-    def load(self, mt, old_sz, pred_mode, idx, comment='', **args):
+    def load(self, mt, old_sz, pred_mode=None, idx=1, comment='', **args):
         assert self.has_model
+        pred_mode = pred_mode or self._pred_mode
         weight_name = 'weights.' + str_version(mt, pred_mode, old_sz, comment) + '.' + str(idx).zfill(2) + '.h5'
         path_weight = str(self.path_checkpoints/weight_name)
         self.model.load_weights(path_weight, **args)
+        print('loaded', str(path_weight))
         
         
     def _input_fn(self, fns, is_val, shuffle, val_split, tfms, num_parallel_calls, 
                  buffer_size, shuffle_buffer_size):
         """
         TODO: data interleave
-        Create tf.data.Iterator from tfrecord file.
+        Creates tf.data.Iterator from tfrecord file.
         """
         dataset = tf.data.TFRecordDataset(fns)
 

@@ -1,8 +1,12 @@
 import tensorflow as tf
 from utils.imports import *
 
+class PredMode(IntEnum):
+    Skip1 = 1
+    Contiguous1 = 2
+    Ensumble = 3
 
-def open_greyscale(fn):
+def open_greyscale(fn, squeeze=True):
     """ Opens an image using OpenCV given the file path.
 
     Arguments:
@@ -27,6 +31,8 @@ def open_greyscale(fn):
                 im = cv2.imdecode(image, flags).astype(np.float32)/255
             else:
                 im = cv2.imread(str(fn), flags).astype(np.float32)/255
+                if not squeeze:
+                    im = np.expand_dims(im, -1)
             if im is None: raise OSError(f'File not recognized by opencv: {fn}')
             return im
         except Exception as e:

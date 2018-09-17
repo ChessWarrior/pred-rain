@@ -69,6 +69,8 @@ else:
     tqdm_notebook=tqdm
 
 tqdm_notebook = tqdm
+from enum import IntEnum
 from utils.clr import *
+from matplotlib import colors
 from .plots import *
 from .misc import *

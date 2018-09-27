@@ -91,7 +91,8 @@ class TorchModelData(ModelData):
         
 # Seems to speed up training by ~2%
 class DataPrefetcher():
-    def __init__(self, loader, stop_after=None):
+    def __init__(self, loader, stop_after=None, gpu=True):
+        self.gpu = gpu
         self.loader = loader
         self.dataset = loader.dataset
         self.stream = torch.cuda.Stream()
@@ -109,9 +110,10 @@ class DataPrefetcher():
             self.next_input = None
             self.next_target = None
             return
-        with torch.cuda.stream(self.stream):
-            self.next_input = self.next_input.cuda(async=True)
-            self.next_target = self.next_target.cuda(async=True)
+        if self.gpu:
+            with torch.cuda.stream(self.stream):
+                self.next_input = self.next_input.cuda(async=True)
+                self.next_target = self.next_target.cuda(async=True)
 
     def __iter__(self):
         count = 0
@@ -127,7 +129,7 @@ class DataPrefetcher():
             if type(self.stop_after) is int and (count > self.stop_after):
                 break
                 
-def torch_loader(data_path, dataset_idx, pred_mode, size, trn_val_split=0.8, debug=False, zero_missing=False):
+def torch_loader(data_path, dataset_idx, pred_mode, size, trn_val_split=0.8, debug=False, zero_missing=False, gpu=True):
     # TODO: average more stats
     # TODO: return test set
     data_path = Path(data_path)
@@ -136,7 +138,7 @@ def torch_loader(data_path, dataset_idx, pred_mode, size, trn_val_split=0.8, deb
     if debug:
         class args:
             pass
-        args.bs = 5
+        args.bs = 8
         args.sz = 256
         args.workers = 1
         args.world_size = 1
@@ -182,8 +184,8 @@ def torch_loader(data_path, dataset_idx, pred_mode, size, trn_val_split=0.8, deb
     val_loader = data.DataLoader(
         val_dataset, args.bs, False, num_workers=args.workers, pin_memory=True)
 
-    trn_loader = DataPrefetcher(trn_loader)
-    val_loader = DataPrefetcher(val_loader)
+    trn_loader = DataPrefetcher(trn_loader, gpu=gpu)
+    val_loader = DataPrefetcher(val_loader, gpu=gpu)
 
     if args.prof:
         trn_loader.stop_after = 200
